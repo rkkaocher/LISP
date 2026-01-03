@@ -2,27 +2,27 @@
 import { Package, User, BillingRecord } from './types';
 
 export const PACKAGES: Package[] = [
-  { id: 'p1', name: 'স্টার্টার - ১০ এমবিপিএস', speed: 10, price: 500, validityDays: 30, dataLimitGb: 100 },
-  { id: 'p2', name: 'স্টার্টার প্লাস - ১০ এমবিপিএস', speed: 10, price: 550, validityDays: 30, dataLimitGb: 0 },
-  { id: 'p3', name: 'বেসিক - ১৫ এমবিপিএস', speed: 15, price: 600, validityDays: 30, dataLimitGb: 0 },
-  { id: 'p4', name: 'বেসিক প্লাস - ২০ এমবিপিএস', speed: 20, price: 650, validityDays: 30, dataLimitGb: 0 },
-  { id: 'p5', name: 'স্ট্যান্ডার্ড - ২৫ এমবিপিএস', speed: 25, price: 750, validityDays: 30, dataLimitGb: 0 },
-  { id: 'p6', name: 'স্ট্যান্ডার্ড প্লাস - ৩০ এমবিপিএস', speed: 30, price: 800, validityDays: 30, dataLimitGb: 0 },
-  { id: 'p7', name: 'ইলাইট - ৩৫ এমবিপিএস', speed: 35, price: 900, validityDays: 30, dataLimitGb: 0 },
-  { id: 'p8', name: 'ইলাইট প্লাস - ৪০ এমবিপিএস', speed: 40, price: 1000, validityDays: 30, dataLimitGb: 0 },
-  { id: 'p9', name: 'প্লাটিনাম - ৪৫ এমবিপিএস', speed: 45, price: 1050, validityDays: 30, dataLimitGb: 0 },
-  { id: 'p10', name: 'ডায়মন্ড - ৫০ এমবিপিএস', speed: 50, price: 1200, validityDays: 30, dataLimitGb: 0 },
-  { id: 'p11', name: 'ডায়মন্ড প্লাস - ৬০ এমবিপিএস', speed: 60, price: 1500, validityDays: 30, dataLimitGb: 0 },
-  { id: 'p12', name: 'প্রিমিয়াম - ৮০ এমবিপিএস', speed: 80, price: 1800, validityDays: 30, dataLimitGb: 0 },
-  { id: 'p13', name: 'প্রিমিয়াম প্লাস - ১০০ এমবিপিএস', speed: 100, price: 2000, validityDays: 30, dataLimitGb: 0 },
-  { id: 'p14', name: 'CATV - ৩০০ টাকা', speed: 0, price: 300, validityDays: 30, dataLimitGb: 0 },
+  { id: 'p1', name: 'Starter - 10 Mbps', speed: 10, price: 500, validityDays: 30, dataLimitGb: 100 },
+  { id: 'p2', name: 'Starter Plus - 10 Mbps', speed: 10, price: 550, validityDays: 30, dataLimitGb: 0 },
+  { id: 'p3', name: 'Basic - 15 Mbps', speed: 15, price: 600, validityDays: 30, dataLimitGb: 0 },
+  { id: 'p4', name: 'Basic Plus - 20 Mbps', speed: 20, price: 650, validityDays: 30, dataLimitGb: 0 },
+  { id: 'p5', name: 'Standard - 25 Mbps', speed: 25, price: 750, validityDays: 30, dataLimitGb: 0 },
+  { id: 'p6', name: 'Standard Plus - 30 Mbps', speed: 30, price: 800, validityDays: 30, dataLimitGb: 0 },
+  { id: 'p7', name: 'Elite - 35 Mbps', speed: 35, price: 900, validityDays: 30, dataLimitGb: 0 },
+  { id: 'p8', name: 'Elite Plus - 40 Mbps', speed: 40, price: 1000, validityDays: 30, dataLimitGb: 0 },
+  { id: 'p9', name: 'Platinum - 45 Mbps', speed: 45, price: 1050, validityDays: 30, dataLimitGb: 0 },
+  { id: 'p10', name: 'Diamond - 50 Mbps', speed: 50, price: 1200, validityDays: 30, dataLimitGb: 0 },
+  { id: 'p11', name: 'Diamond Plus - 60 Mbps', speed: 60, price: 1500, validityDays: 30, dataLimitGb: 0 },
+  { id: 'p12', name: 'Premium - 80 Mbps', speed: 80, price: 1800, validityDays: 30, dataLimitGb: 0 },
+  { id: 'p13', name: 'Premium Plus - 100 Mbps', speed: 100, price: 2000, validityDays: 30, dataLimitGb: 0 },
+  { id: 'p14', name: 'CATV - 300 Taka', speed: 0, price: 300, validityDays: 30, dataLimitGb: 0 },
 ];
 
 export const INITIAL_USERS: User[] = [
   {
     id: 'u1',
-    username: 'admin',
-    password: 'password123',
+    username: 'admin', 
+    password: 'password123', 
     fullName: 'System Administrator',
     email: 'admin@nexusconnect.net',
     phone: '+8801700000000',

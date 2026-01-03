@@ -1,7 +1,8 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { User, Package, BillingRecord } from '../types';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { getSupportAdvice } from '../services/geminiService';
 
 interface CustomerDashboardProps {
   user: User;
@@ -10,12 +11,25 @@ interface CustomerDashboardProps {
 }
 
 const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, packages, bills }) => {
+  const [showAiChat, setShowAiChat] = useState(false);
+  const [aiMessage, setAiMessage] = useState('');
+  const [aiResponse, setAiResponse] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
   const currentPackage = packages.find(p => p.id === user.packageId);
 
   const usageData = [
     { day: 'Mon', usage: 4.2 }, { day: 'Tue', usage: 3.8 }, { day: 'Wed', usage: 5.1 },
     { day: 'Thu', usage: 4.9 }, { day: 'Fri', usage: 7.4 }, { day: 'Sat', usage: 10.2 }, { day: 'Sun', usage: 8.5 },
   ];
+
+  const handleAiAsk = async () => {
+    if (!aiMessage.trim()) return;
+    setIsLoading(true);
+    const advice = await getSupportAdvice(aiMessage);
+    setAiResponse(advice);
+    setIsLoading(false);
+  };
 
   const getMethodBadge = (method: BillingRecord['method']) => {
     switch(method) {
@@ -27,154 +41,156 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, packages, b
     }
   };
 
-  const sortedBills = [...bills].sort((a,b) => b.billingMonth.localeCompare(a.billingMonth));
+  // Improved sorting to handle date strings better (Latest first)
+  const sortedBills = [...bills].sort((a, b) => {
+    // Attempt to parse actual dates if they exist, otherwise compare month strings
+    const dateA = a.date ? new Date(a.date).getTime() : new Date(a.billingMonth).getTime();
+    const dateB = b.date ? new Date(b.date).getTime() : new Date(b.billingMonth).getTime();
+    return dateB - dateA;
+  });
+
   const pendingBills = sortedBills.filter(b => b.status === 'pending');
   const paidBills = sortedBills.filter(b => b.status === 'paid');
 
   return (
-    <div className="relative pb-20">
-      <div className="space-y-6 animate-in fade-in duration-700">
-        {/* Status Banner */}
-        <div className="bg-indigo-600 rounded-3xl p-6 text-white shadow-xl flex flex-col md:flex-row justify-between items-center gap-4 relative overflow-hidden">
+    <div className="relative pb-24">
+      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="bg-indigo-600 rounded-[2.5rem] p-8 text-white shadow-2xl shadow-indigo-200 flex flex-col md:flex-row justify-between items-center gap-6 relative overflow-hidden">
           <div className="relative z-10 text-center md:text-left">
-            <p className="text-[10px] font-bold opacity-80 uppercase tracking-widest mb-1">আপনার প্যাকেজ</p>
-            <h2 className="text-2xl md:text-3xl font-bold leading-tight">
+            <span className="text-[10px] font-extrabold opacity-70 uppercase tracking-[0.2em] mb-2 block">Premium Connectivity</span>
+            <h2 className="text-3xl md:text-4xl font-extrabold leading-none tracking-tight">
               {currentPackage?.name}
             </h2>
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mt-3">
-              <span className="bg-white/20 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider">সচল সংযোগ</span>
-              {user.upstreamProvider && (
-                <span className="bg-indigo-500/30 border border-white/10 px-3 py-1 rounded-full text-[10px] font-medium">🌐 {user.upstreamProvider}</span>
-              )}
+            <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mt-4">
+              <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${user.status === 'active' ? 'bg-green-400/20 text-green-300 border-green-400/30' : 'bg-red-400/20 text-red-300 border-red-400/30'}`}>
+                ● {user.status.charAt(0).toUpperCase() + user.status.slice(1)} Connection
+              </span>
+              <span className="bg-white/10 border border-white/10 px-3 py-1 rounded-full text-[10px] font-medium">IP: 103.145.22.12</span>
             </div>
           </div>
-          <div className="relative z-10 flex gap-4">
-            <div className="text-center bg-white/10 px-4 py-2 rounded-2xl border border-white/10 backdrop-blur-sm min-w-[100px]">
-              <p className="text-[10px] uppercase opacity-70 mb-0.5">মেয়াদ শেষ</p>
-              <p className="text-lg font-bold">{user.expiryDate.split('-')[2]}/{user.expiryDate.split('-')[1]}</p>
+          <div className="relative z-10 grid grid-cols-2 gap-3 w-full md:w-auto">
+            <div className="text-center bg-white/10 px-6 py-4 rounded-3xl border border-white/10 backdrop-blur-md">
+              <p className="text-[9px] font-bold uppercase opacity-60 mb-1 tracking-widest">Internet Validity</p>
+              <p className="text-xl font-black">{new Date(user.expiryDate).toLocaleDateString('en-GB')}</p>
             </div>
-            <div className="text-center bg-white/10 px-4 py-2 rounded-2xl border border-white/10 backdrop-blur-sm min-w-[100px]">
-              <p className="text-[10px] uppercase opacity-70 mb-0.5">মাসিক বিল</p>
-              <p className="text-lg font-bold">৳{currentPackage?.price}</p>
+            <div className="text-center bg-white/10 px-6 py-4 rounded-3xl border border-white/10 backdrop-blur-md">
+              <p className="text-[9px] font-bold uppercase opacity-60 mb-1 tracking-widest">Monthly Bill</p>
+              <p className="text-xl font-black">৳{currentPackage?.price}</p>
             </div>
           </div>
-          {/* Decor */}
-          <div className="absolute -right-10 -top-10 w-48 h-48 bg-white/10 rounded-full blur-3xl"></div>
-          <div className="absolute -left-10 -bottom-10 w-32 h-32 bg-indigo-400/20 rounded-full blur-2xl"></div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            {/* Connection Details Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
-                <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-xl shadow-inner">🏢</div>
-                <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">লাইন প্রোভাইডার</p>
-                  <p className="text-sm font-bold text-slate-800">{user.upstreamProvider || 'Default Network'}</p>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-8 space-y-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[
+                { label: 'Current Speed', val: `${currentPackage?.speed} Mbps`, icon: '⚡', color: 'bg-blue-50 text-blue-600' },
+                { label: 'Uptime', val: '99.9%', icon: '🚀', color: 'bg-emerald-50 text-emerald-600' },
+                { label: 'Package Type', val: 'Unlimited', icon: '📊', color: 'bg-violet-50 text-violet-600' },
+                { label: 'Stability', val: 'High', icon: '📡', color: 'bg-amber-50 text-amber-600' }
+              ].map((s, idx) => (
+                <div key={idx} className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col items-center text-center">
+                  <div className={`w-10 h-10 ${s.color} rounded-2xl flex items-center justify-center text-lg mb-2 shadow-sm`}>{s.icon}</div>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{s.label}</p>
+                  <p className="text-sm font-bold text-slate-800 tracking-tight">{s.val}</p>
                 </div>
-              </div>
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
-                <div className="w-12 h-12 bg-green-50 rounded-2xl flex items-center justify-center text-xl shadow-inner">⚡</div>
-                <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">সর্বোচ্চ গতি</p>
-                  <p className="text-sm font-bold text-slate-800">{currentPackage?.speed} Mbps</p>
-                </div>
-              </div>
+              ))}
             </div>
 
-            {/* Monthly Billing List */}
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-              <h4 className="font-bold text-slate-800 mb-6 flex items-center justify-between">
-                <span className="flex items-center gap-2">💳 বিল ও বকেয়া</span>
-                <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold uppercase">Payment Logs</span>
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+              <h4 className="font-bold text-slate-800 flex items-center gap-2 mb-8">
+                <span className="w-8 h-8 bg-indigo-50 rounded-lg flex items-center justify-center text-sm">💳</span>
+                My Billing Records
               </h4>
               
-              <div className="space-y-3">
-                {pendingBills.length === 0 && paidBills.length === 0 && (
-                  <p className="text-center py-10 text-slate-400 text-xs italic">কোনো বিলিং রেকর্ড পাওয়া যায়নি।</p>
-                )}
-                
+              <div className="space-y-4">
                 {pendingBills.map(bill => (
-                  <div key={bill.id} className="flex items-center justify-between p-4 bg-red-50/50 border border-red-100 rounded-2xl group transition-all">
+                  <div key={bill.id} className="flex items-center justify-between p-5 bg-red-50 border border-red-100 rounded-[1.5rem] animate-pulse">
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center text-red-600 animate-pulse">🔔</div>
+                      <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-xl shadow-sm">⚠️</div>
                       <div>
                         <p className="text-sm font-bold text-slate-800">{bill.billingMonth}</p>
-                        <p className="text-[10px] text-red-500 font-bold uppercase tracking-wider">বকেয়া বিল</p>
+                        <p className="text-[10px] text-red-500 font-bold uppercase tracking-wide">Due - Please pay to avoid suspension</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-red-600">৳{bill.amount}</p>
-                      <p className="text-[10px] text-slate-400">মেয়াদ বাড়াতে বিল দিন</p>
+                      <p className="text-lg font-black text-red-600">৳{bill.amount}</p>
                     </div>
                   </div>
                 ))}
 
                 {paidBills.map(bill => (
-                  <div key={bill.id} className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:bg-slate-100/50 transition-colors">
+                  <div key={bill.id} className="flex items-center justify-between p-5 bg-slate-50 border border-slate-100 rounded-[1.5rem] hover:bg-white hover:shadow-md transition-all">
                     <div className="flex items-center gap-4">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs shadow-sm ${getMethodBadge(bill.method)}`}>
-                        {bill.method === 'Cash' ? '৳' : bill.method[0]}
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm shadow-sm ${getMethodBadge(bill.method)}`}>
+                        {bill.method[0]}
                       </div>
                       <div>
                         <p className="text-sm font-bold text-slate-800">{bill.billingMonth}</p>
                         <div className="flex items-center gap-2">
-                          <span className="text-[9px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100 uppercase tracking-tighter">পরিশোধিত</span>
-                          <p className="text-[9px] text-slate-400 font-medium">{bill.date} • {bill.method}</p>
+                          <span className="text-[9px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100 uppercase">Paid</span>
+                          <p className="text-[9px] text-slate-400 font-medium">On: {bill.date}</p>
                         </div>
                       </div>
                     </div>
                     <p className="font-bold text-slate-700">৳{bill.amount}</p>
                   </div>
                 ))}
-              </div>
-            </div>
-
-            {/* Usage Chart */}
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-              <h4 className="font-bold text-slate-800 mb-6 flex items-center gap-2">📈 ডাটা ব্যবহারের সামারি</h4>
-              <div className="h-48 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={usageData}>
-                    <defs>
-                      <linearGradient id="colorUsage" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15}/><stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} />
-                    <Tooltip contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
-                    <Area type="monotone" dataKey="usage" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorUsage)" />
-                  </AreaChart>
-                </ResponsiveContainer>
+                
+                {bills.length === 0 && (
+                  <div className="text-center py-10">
+                    <p className="text-slate-400 text-sm">No billing records found.</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-              <h4 className="font-bold text-slate-800 mb-4 text-xs">জরুরী যোগাযোগ</h4>
-              <div className="space-y-3">
-                <a href="tel:+8801827166214" className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl hover:bg-indigo-50 transition-colors group">
-                  <span className="w-8 h-8 bg-white border border-slate-200 rounded-full flex items-center justify-center text-xs group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm">📞</span>
+          <div className="lg:col-span-4 space-y-6">
+            <div className="bg-indigo-900 rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden">
+              <h4 className="text-sm font-bold mb-6 opacity-80 uppercase tracking-widest">Technical Support</h4>
+              <div className="space-y-4 relative z-10">
+                <a href="tel:+8801827166214" className="flex items-center gap-4 p-4 bg-white/10 rounded-3xl border border-white/5 hover:bg-white/20 transition-all group">
+                  <span className="w-10 h-10 bg-indigo-500 rounded-2xl flex items-center justify-center text-lg">📞</span>
                   <div>
-                    <p className="text-[10px] font-bold text-slate-800">কাস্টমার কেয়ার</p>
-                    <p className="text-[10px] text-slate-400">০১৮২৭-১৬৬২১৪</p>
+                    <p className="text-[10px] font-bold text-indigo-200 uppercase">24/7 Hotline</p>
+                    <p className="text-sm font-bold">+880 1827-166214</p>
                   </div>
                 </a>
+                <button onClick={() => setShowAiChat(true)} className="w-full flex items-center gap-4 p-4 bg-indigo-500 rounded-3xl border border-indigo-400 group">
+                  <span className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center text-lg">🤖</span>
+                  <div className="text-left">
+                    <p className="text-[10px] font-bold text-white uppercase">AI Support</p>
+                    <p className="text-sm font-bold">Ask for help</p>
+                  </div>
+                </button>
               </div>
-            </div>
-            
-            <div className="bg-indigo-50/50 p-6 rounded-3xl border border-indigo-100 flex flex-col items-center text-center">
-              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-xl mb-3 shadow-sm">🛡️</div>
-              <h5 className="text-xs font-bold text-slate-700 mb-1">নিরাপদ ব্রাউজিং</h5>
-              <p className="text-[9px] text-slate-500">আপনার সংযোগটি বর্তমানে এনক্রিপ্টেড এবং সুরক্ষিত আছে।</p>
             </div>
           </div>
         </div>
       </div>
+
+      {showAiChat && (
+        <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-6 bg-slate-900/60 backdrop-blur-md">
+          <div className="bg-white w-full max-w-lg md:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col h-[90vh] md:h-[600px]">
+            <div className="bg-indigo-600 p-6 flex justify-between items-center text-white">
+              <h3 className="font-bold">NexusConnect AI Support</h3>
+              <button onClick={() => setShowAiChat(false)} className="text-white hover:opacity-70">✕</button>
+            </div>
+            <div className="flex-grow p-6 overflow-y-auto space-y-4">
+              <div className="bg-slate-50 p-4 rounded-3xl rounded-tl-none text-sm text-slate-700 border border-slate-100">
+                Hi! How can I help you with your internet connection today?
+              </div>
+              {aiResponse && <div className="bg-indigo-50 p-4 rounded-3xl rounded-tr-none text-sm text-indigo-700 self-end ml-10 border border-indigo-100">{aiResponse}</div>}
+              {isLoading && <div className="text-center text-xs text-slate-400 italic">Thinking...</div>}
+            </div>
+            <div className="p-6 bg-slate-50 border-t flex gap-2">
+              <input type="text" className="flex-grow px-4 py-2 rounded-xl border outline-none" placeholder="Type your issue..." value={aiMessage} onChange={(e) => setAiMessage(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAiAsk()} />
+              <button onClick={handleAiAsk} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold">Ask</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

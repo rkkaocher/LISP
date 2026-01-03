@@ -8,7 +8,6 @@ import AdminDashboard from './components/AdminDashboard';
 import Navbar from './components/Navbar';
 
 const App: React.FC = () => {
-  // Use lazy initializers to load from localStorage on the very first render
   const [users, setUsers] = useState<User[]>(() => {
     try {
       const saved = localStorage.getItem('isp_users');
@@ -32,7 +31,6 @@ const App: React.FC = () => {
   const [auth, setAuth] = useState<AuthState>({ user: null, isAuthenticated: false });
   const [packages] = useState<Package[]>(PACKAGES);
 
-  // Sync state to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('isp_users', JSON.stringify(users));
   }, [users]);
@@ -56,8 +54,6 @@ const App: React.FC = () => {
 
   const updateUser = (updatedUser: User) => {
     setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
-    
-    // If the updated user is the currently logged in user, update auth state
     if (auth.user?.id === updatedUser.id) {
       setAuth(prev => ({ ...prev, user: updatedUser }));
     }
@@ -82,7 +78,6 @@ const App: React.FC = () => {
       return [record, ...prev];
     });
 
-    // If payment is successful, extend user expiry
     const user = users.find(u => u.id === record.userId);
     if (user && record.status === 'paid') {
       const currentExpiry = new Date(user.expiryDate);
@@ -95,11 +90,13 @@ const App: React.FC = () => {
     }
   };
 
-  const generateMonthlyBills = (month: string) => {
+  const generateMonthlyBills = (month: string, targetUserIds?: string[]): number => {
     const customers = users.filter(u => u.role === 'customer');
     const newBills: BillingRecord[] = [];
     
     customers.forEach(user => {
+      if (targetUserIds && !targetUserIds.includes(user.id)) return;
+
       const alreadyHasBill = bills.some(b => b.userId === user.id && b.billingMonth === month);
       if (!alreadyHasBill) {
         const pkg = packages.find(p => p.id === user.packageId);
@@ -117,13 +114,45 @@ const App: React.FC = () => {
 
     if (newBills.length > 0) {
       setBills(prev => [...newBills, ...prev]);
-      alert(`${newBills.length} জন কাস্টমারের জন্য ${month}-এর ডিউ বিল তৈরি করা হয়েছে।`);
-    } else {
-      alert(`এই মাসের বিল আগেই তৈরি করা হয়েছে অথবা কোনো কাস্টমার নেই।`);
+      return newBills.length;
     }
+    return 0;
   };
 
-  // Memoize filtered bills to prevent unnecessary CustomerDashboard re-renders
+  const handleExportData = () => {
+    const data = {
+      users,
+      bills,
+      exportedAt: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `nexus_backup_${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportData = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target?.result as string);
+        if (data.users && data.bills) {
+          setUsers(data.users);
+          setBills(data.bills);
+          alert('Data restored successfully!');
+        } else {
+          alert('Invalid backup file format.');
+        }
+      } catch (err) {
+        alert('Error reading backup file.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const userBills = useMemo(() => 
     bills.filter(b => b.userId === auth.user?.id),
     [bills, auth.user?.id]
@@ -148,6 +177,9 @@ const App: React.FC = () => {
             onDeleteUser={deleteUser}
             onAddBill={addBillingRecord}
             onGenerateMonthlyBills={generateMonthlyBills}
+            currentUser={auth.user}
+            onExportData={handleExportData}
+            onImportData={handleImportData}
           />
         ) : (
           <CustomerDashboard 

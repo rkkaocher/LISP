@@ -1,5 +1,6 @@
 {
   "name": "NexusConnect ISP Portal",
-  "description": "A comprehensive ISP management system featuring a customer portal for plan details and usage tracking, and a secure admin dashboard for customer and package management.",
+  "short_name": "NexusConnect",
+  "description": "A high-performance ISP management portal for internet connectivity, billing, and real-time usage tracking.",
   "requestFramePermissions": []
 }

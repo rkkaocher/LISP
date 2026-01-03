@@ -16,84 +16,80 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setError('');
     const success = onLogin(username, password);
     if (!success) {
-      setError('Invalid credentials. Please try again.');
+      setError('Incorrect Username or Password. Please try again.');
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900 px-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-[#0F172A] px-4 selection:bg-indigo-500/30">
+      <div className="w-full max-w-[440px] animate-in fade-in zoom-in-95 duration-700">
         <div className="text-center mb-10">
-          <div className="w-16 h-16 bg-indigo-600 rounded-2xl mx-auto flex items-center justify-center text-white text-3xl font-bold shadow-xl shadow-indigo-500/20 mb-4">
+          <div className="w-20 h-20 bg-indigo-600 rounded-[2.5rem] mx-auto flex items-center justify-center text-white text-4xl font-black shadow-2xl shadow-indigo-500/40 mb-6 rotate-3">
             N
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">NexusConnect</h1>
-          <p className="text-slate-400 mt-2">Sign in to manage your internet services</p>
+          <h1 className="text-4xl font-black text-white tracking-tight mb-2">NexusConnect</h1>
+          <p className="text-slate-500 text-sm font-medium">Start your high-speed internet experience</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-3xl p-8 shadow-2xl">
+        <form onSubmit={handleSubmit} className="bg-white rounded-[3rem] p-10 shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 to-violet-500"></div>
+          
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl">
-              {error}
+            <div className="mb-8 p-4 bg-red-50 border border-red-100 text-red-600 text-[11px] font-bold rounded-2xl flex items-center gap-3">
+              <span className="text-lg">⚠️</span> {error}
             </div>
           )}
 
-          <div className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">User ID</label>
-              <input
-                type="text"
-                required
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                placeholder="Enter your customer ID"
-              />
+          <div className="space-y-8">
+            <div className="group">
+              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3 ml-1">User ID</label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300">👤</span>
+                <input
+                  type="text"
+                  required
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-3xl focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 transition-all font-medium text-slate-700"
+                  placeholder="Enter Customer ID"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Password</label>
+            <div className="group">
+              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3 ml-1">Password</label>
               <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300">🔑</span>
                 <input
                   type={showPassword ? "text" : "password"}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all pr-12"
+                  className="w-full pl-12 pr-14 py-4 bg-slate-50 border border-slate-100 rounded-3xl focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 transition-all font-medium text-slate-700"
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-indigo-600 transition-colors focus:outline-none"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-300 hover:text-indigo-600 transition-colors focus:outline-none"
                 >
-                  {showPassword ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
-                    </svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  )}
+                  {showPassword ? '🙈' : '👁️'}
                 </button>
               </div>
             </div>
 
             <button
               type="submit"
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-4 rounded-xl shadow-lg shadow-indigo-500/30 transition-all transform active:scale-95"
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-5 rounded-[2rem] shadow-xl shadow-indigo-500/30 transition-all transform active:scale-[0.98] mt-4 tracking-tight"
             >
-              Sign In
+              Access Portal
             </button>
           </div>
         </form>
 
-        <p className="text-center mt-8 text-slate-500 text-sm">
-          Having trouble logging in? <br />
-          <span className="text-indigo-400 font-medium cursor-pointer">Contact your local branch</span>
+        <p className="text-center mt-10 text-slate-600 text-[11px] font-bold uppercase tracking-widest">
+          Need Assistance? <br />
+          <span className="text-indigo-400 cursor-pointer hover:underline underline-offset-4">Contact your local branch</span>
         </p>
       </div>
     </div>
