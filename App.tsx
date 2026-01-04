@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { AuthState, User, Package, BillingRecord } from './types.ts';
-import { INITIAL_USERS, PACKAGES, MOCK_BILLING } from './constants.tsx';
-import Login from './components/Login.tsx';
-import CustomerDashboard from './components/CustomerDashboard.tsx';
-import AdminDashboard from './components/AdminDashboard.tsx';
-import Navbar from './components/Navbar.tsx';
+import { AuthState, User, Package, BillingRecord } from './types';
+import { INITIAL_USERS, PACKAGES, MOCK_BILLING } from './constants';
+import Login from './components/Login';
+import CustomerDashboard from './components/CustomerDashboard';
+import AdminDashboard from './components/AdminDashboard';
+import Navbar from './components/Navbar';
 
 const App: React.FC = () => {
   const [users, setUsers] = useState<User[]>(() => {

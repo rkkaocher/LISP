@@ -1,12 +1,22 @@
 {
   "name": "nexusconnect-isp-portal",
   "version": "1.0.0",
-  "description": "ISP Management Portal",
+  "type": "module",
   "scripts": {
-    "start": "npx servor . index.html 8080",
-    "build": "echo 'Static site - no build step required'"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC"
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "@google/genai": "^1.34.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.1"
+  }
 }
