@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
-import { AuthState, User, Package, BillingRecord } from './types';
-import { INITIAL_USERS, PACKAGES, MOCK_BILLING } from './constants';
-import Login from './components/Login';
-import CustomerDashboard from './components/CustomerDashboard';
-import AdminDashboard from './components/AdminDashboard';
-import Navbar from './components/Navbar';
+import { AuthState, User, Package, BillingRecord } from './types.ts';
+import { INITIAL_USERS, PACKAGES, MOCK_BILLING } from './constants.tsx';
+import Login from './components/Login.tsx';
+import CustomerDashboard from './components/CustomerDashboard.tsx';
+import AdminDashboard from './components/AdminDashboard.tsx';
+import Navbar from './components/Navbar.tsx';
 
 const App: React.FC = () => {
   const [users, setUsers] = useState<User[]>(() => {
@@ -65,7 +64,6 @@ const App: React.FC = () => {
 
   const deleteUser = (id: string) => {
     setUsers(prev => prev.filter(u => u.id !== id));
-    // Also cleanup bills for this user
     setBills(prev => prev.filter(b => b.userId !== id));
   };
 
@@ -81,7 +79,6 @@ const App: React.FC = () => {
     });
 
     const user = users.find(u => u.id === record.userId);
-    // Only extend internet validity if it's a regular package payment
     if (user && record.status === 'paid' && record.type !== 'miscellaneous') {
       const currentExpiry = new Date(user.expiryDate);
       const newExpiry = new Date(currentExpiry.getTime() + 30 * 24 * 60 * 60 * 1000);
@@ -129,11 +126,7 @@ const App: React.FC = () => {
   };
 
   const handleExportData = () => {
-    const data = {
-      users,
-      bills,
-      exportedAt: new Date().toISOString()
-    };
+    const data = { users, bills, exportedAt: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');

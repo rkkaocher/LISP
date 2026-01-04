@@ -1,10 +1,13 @@
-
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const getAI = () => {
+  const apiKey = (typeof process !== 'undefined' && process.env?.API_KEY) || "";
+  return new GoogleGenAI({ apiKey });
+};
 
 export async function getPlanRecommendation(userProfile: string) {
   try {
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Based on the following user internet usage profile, recommend one of our packages: 
@@ -21,6 +24,7 @@ export async function getPlanRecommendation(userProfile: string) {
 
 export async function getSupportAdvice(issue: string) {
   try {
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `You are an ISP technical support bot. Help a customer with this issue: "${issue}". 
