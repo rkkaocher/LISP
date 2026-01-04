@@ -1,7 +1,6 @@
 
 import React, { useState } from 'react';
 import { User, Package, BillingRecord } from '../types';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { getSupportAdvice } from '../services/geminiService';
 
 interface CustomerDashboardProps {
@@ -17,11 +16,6 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, packages, b
   const [isLoading, setIsLoading] = useState(false);
 
   const currentPackage = packages.find(p => p.id === user.packageId);
-
-  const usageData = [
-    { day: 'Mon', usage: 4.2 }, { day: 'Tue', usage: 3.8 }, { day: 'Wed', usage: 5.1 },
-    { day: 'Thu', usage: 4.9 }, { day: 'Fri', usage: 7.4 }, { day: 'Sat', usage: 10.2 }, { day: 'Sun', usage: 8.5 },
-  ];
 
   const handleAiAsk = async () => {
     if (!aiMessage.trim()) return;
@@ -41,9 +35,7 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, packages, b
     }
   };
 
-  // Improved sorting to handle date strings better (Latest first)
   const sortedBills = [...bills].sort((a, b) => {
-    // Attempt to parse actual dates if they exist, otherwise compare month strings
     const dateA = a.date ? new Date(a.date).getTime() : new Date(a.billingMonth).getTime();
     const dateB = b.date ? new Date(b.date).getTime() : new Date(b.billingMonth).getTime();
     return dateB - dateA;
@@ -105,16 +97,20 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, packages, b
               
               <div className="space-y-4">
                 {pendingBills.map(bill => (
-                  <div key={bill.id} className="flex items-center justify-between p-5 bg-red-50 border border-red-100 rounded-[1.5rem] animate-pulse">
+                  <div key={bill.id} className={`flex items-center justify-between p-5 rounded-[1.5rem] animate-pulse ${bill.type === 'miscellaneous' ? 'bg-amber-50 border-amber-100' : 'bg-red-50 border-red-100'}`}>
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-xl shadow-sm">⚠️</div>
+                      <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-xl shadow-sm">
+                        {bill.type === 'miscellaneous' ? '📋' : '⚠️'}
+                      </div>
                       <div>
                         <p className="text-sm font-bold text-slate-800">{bill.billingMonth}</p>
-                        <p className="text-[10px] text-red-500 font-bold uppercase tracking-wide">Due - Please pay to avoid suspension</p>
+                        <p className={`text-[10px] font-bold uppercase tracking-wide ${bill.type === 'miscellaneous' ? 'text-amber-600' : 'text-red-500'}`}>
+                          {bill.description || 'Due - Internet Bill'}
+                        </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-black text-red-600">৳{bill.amount}</p>
+                      <p className={`text-lg font-black ${bill.type === 'miscellaneous' ? 'text-amber-600' : 'text-red-600'}`}>৳{bill.amount}</p>
                     </div>
                   </div>
                 ))}
@@ -129,11 +125,14 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, packages, b
                         <p className="text-sm font-bold text-slate-800">{bill.billingMonth}</p>
                         <div className="flex items-center gap-2">
                           <span className="text-[9px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100 uppercase">Paid</span>
-                          <p className="text-[9px] text-slate-400 font-medium">On: {bill.date}</p>
+                          <p className="text-[9px] text-slate-400 font-medium">{bill.description || 'Monthly Internet'}</p>
                         </div>
                       </div>
                     </div>
-                    <p className="font-bold text-slate-700">৳{bill.amount}</p>
+                    <div className="text-right">
+                       <p className="font-bold text-slate-700">৳{bill.amount}</p>
+                       <p className="text-[8px] text-slate-400">{bill.date}</p>
+                    </div>
                   </div>
                 ))}
                 

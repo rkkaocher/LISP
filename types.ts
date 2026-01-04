@@ -36,6 +36,8 @@ export interface BillingRecord {
   billingMonth: string; // Format: "January 2024"
   status: 'paid' | 'pending';
   method: 'Cash' | 'bKash' | 'Nagad' | 'Rocket' | 'None';
+  description?: string; // For miscellaneous charges like "Router purchase", "Connection fee"
+  type?: 'package' | 'miscellaneous';
 }
 
 export interface AuthState {

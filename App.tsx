@@ -65,6 +65,8 @@ const App: React.FC = () => {
 
   const deleteUser = (id: string) => {
     setUsers(prev => prev.filter(u => u.id !== id));
+    // Also cleanup bills for this user
+    setBills(prev => prev.filter(b => b.userId !== id));
   };
 
   const addBillingRecord = (record: BillingRecord) => {
@@ -79,7 +81,8 @@ const App: React.FC = () => {
     });
 
     const user = users.find(u => u.id === record.userId);
-    if (user && record.status === 'paid') {
+    // Only extend internet validity if it's a regular package payment
+    if (user && record.status === 'paid' && record.type !== 'miscellaneous') {
       const currentExpiry = new Date(user.expiryDate);
       const newExpiry = new Date(currentExpiry.getTime() + 30 * 24 * 60 * 60 * 1000);
       updateUser({
@@ -90,6 +93,10 @@ const App: React.FC = () => {
     }
   };
 
+  const deleteBill = (id: string) => {
+    setBills(prev => prev.filter(b => b.id !== id));
+  };
+
   const generateMonthlyBills = (month: string, targetUserIds?: string[]): number => {
     const customers = users.filter(u => u.role === 'customer');
     const newBills: BillingRecord[] = [];
@@ -97,7 +104,7 @@ const App: React.FC = () => {
     customers.forEach(user => {
       if (targetUserIds && !targetUserIds.includes(user.id)) return;
 
-      const alreadyHasBill = bills.some(b => b.userId === user.id && b.billingMonth === month);
+      const alreadyHasBill = bills.some(b => b.userId === user.id && b.billingMonth === month && b.type === 'package');
       if (!alreadyHasBill) {
         const pkg = packages.find(p => p.id === user.packageId);
         newBills.push({
@@ -107,7 +114,9 @@ const App: React.FC = () => {
           date: '',
           billingMonth: month,
           status: 'pending',
-          method: 'None'
+          method: 'None',
+          type: 'package',
+          description: 'Monthly Internet Subscription'
         });
       }
     });
@@ -176,6 +185,7 @@ const App: React.FC = () => {
             onAddUser={addUser}
             onDeleteUser={deleteUser}
             onAddBill={addBillingRecord}
+            onDeleteBill={deleteBill}
             onGenerateMonthlyBills={generateMonthlyBills}
             currentUser={auth.user}
             onExportData={handleExportData}

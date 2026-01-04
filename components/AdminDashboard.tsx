@@ -10,6 +10,7 @@ interface AdminDashboardProps {
   onAddUser: (u: User) => void;
   onDeleteUser: (id: string) => void;
   onAddBill: (b: BillingRecord) => void;
+  onDeleteBill: (id: string) => void;
   onGenerateMonthlyBills: (month: string, targetUserIds?: string[]) => number;
   currentUser?: User;
   onExportData: () => void;
@@ -26,15 +27,17 @@ const MONTHS = [
 ];
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
-  users, packages, bills, onUpdateUser, onAddUser, onDeleteUser, onAddBill, onGenerateMonthlyBills, currentUser, onExportData, onImportData
+  users, packages, bills, onUpdateUser, onAddUser, onDeleteUser, onAddBill, onDeleteBill, onGenerateMonthlyBills, currentUser, onExportData, onImportData
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'users' | 'billing' | 'settings'>('users');
   const [billingSubTab, setBillingSubTab] = useState<'pending' | 'history'>('pending');
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
+  const [deletingBill, setDeletingBill] = useState<BillingRecord | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [showExtraDueModal, setShowExtraDueModal] = useState<User | null>(null);
   
   const now = new Date();
   const [billingMonth, setBillingMonth] = useState(MONTHS[now.getMonth()]);
@@ -45,6 +48,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   
+  const [extraDueData, setExtraDueData] = useState({ amount: 0, description: '' });
+
   const [adminSettings, setAdminSettings] = useState({
     fullName: currentUser?.fullName || '',
     username: currentUser?.username || '',
@@ -89,13 +94,25 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const eligibleUsersForBilling = useMemo(() => {
     return users.filter(u => 
       u.role === 'customer' && 
-      !bills.some(b => b.userId === u.id && b.billingMonth === targetMonthStr)
+      !bills.some(b => b.userId === u.id && b.billingMonth === targetMonthStr && b.type === 'package')
     );
   }, [users, bills, targetMonthStr]);
 
   useEffect(() => {
     setSelectedForBilling(eligibleUsersForBilling.map(u => u.id));
   }, [targetMonthStr, eligibleUsersForBilling.length]);
+
+  const handleQuickExtend = (user: User) => {
+    const currentExpiry = new Date(user.expiryDate);
+    const newExpiry = new Date(currentExpiry.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const updatedUser: User = {
+      ...user,
+      status: 'active',
+      expiryDate: newExpiry.toISOString().split('T')[0]
+    };
+    onUpdateUser(updatedUser);
+    setNotification({ message: `Validity extended for ${user.fullName} until ${updatedUser.expiryDate}`, type: 'success' });
+  };
 
   const handleOpenGenerateModal = () => {
     setShowGenerateModal(true);
@@ -136,6 +153,30 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }, 800);
   };
 
+  const handleAddExtraDue = () => {
+    if (!showExtraDueModal || !extraDueData.amount || !extraDueData.description) {
+      setNotification({ message: "Please enter amount and description.", type: 'error' });
+      return;
+    }
+
+    const newRecord: BillingRecord = {
+      id: 'misc' + Date.now(),
+      userId: showExtraDueModal.id,
+      amount: extraDueData.amount,
+      date: '',
+      billingMonth: currentMonthDisplay,
+      status: 'pending',
+      method: 'None',
+      description: extraDueData.description,
+      type: 'miscellaneous'
+    };
+
+    onAddBill(newRecord);
+    setShowExtraDueModal(null);
+    setExtraDueData({ amount: 0, description: '' });
+    setNotification({ message: "Extra charge added successfully!", type: 'success' });
+  };
+
   const handleDeleteClick = (user: User) => {
     setDeletingUser(user);
   };
@@ -145,6 +186,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       onDeleteUser(deletingUser.id);
       setNotification({ message: `Customer ${deletingUser.fullName} deleted.`, type: 'success' });
       setDeletingUser(null);
+    }
+  };
+
+  const confirmDeleteBill = () => {
+    if (deletingBill) {
+      onDeleteBill(deletingBill.id);
+      setNotification({ message: "Bill deleted successfully.", type: 'success' });
+      setDeletingBill(null);
     }
   };
 
@@ -304,13 +353,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   {filteredUsers.map(user => (
                     <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-6 py-4">
-                        <p className="font-bold text-slate-800">{user.fullName}</p>
-                        <p className="text-[9px] text-slate-400">ID: {user.username} | 🌐 {user.upstreamProvider}</p>
+                        <div className="flex items-center gap-2">
+                           <span className={`w-2 h-2 rounded-full ${user.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                           <p className="font-bold text-slate-800">{user.fullName}</p>
+                        </div>
+                        <p className="text-[9px] text-slate-400 ml-4">ID: {user.username} | 🌐 {user.upstreamProvider}</p>
                       </td>
                       <td className="px-6 py-4 text-xs font-medium text-indigo-600">{packages.find(p => p.id === user.packageId)?.name}</td>
                       <td className="px-6 py-4 text-xs font-medium text-slate-500">{user.expiryDate}</td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
+                          <button onClick={() => handleQuickExtend(user)} className="bg-indigo-50 text-indigo-700 font-bold text-[9px] uppercase px-2 py-1 rounded-md hover:bg-indigo-100">+30 Days</button>
+                          <button onClick={() => setShowExtraDueModal(user)} className="text-amber-600 font-bold text-[9px] uppercase border border-amber-100 px-2 py-1 rounded-md hover:bg-amber-50">Charge</button>
                           <button onClick={() => setEditingUser(user)} className="text-indigo-600 font-bold text-xs">Edit</button>
                           <button onClick={() => handleDeleteClick(user)} className="text-red-500 font-bold text-xs">Delete</button>
                         </div>
@@ -324,7 +378,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <thead className="bg-slate-50 text-[10px] uppercase font-bold text-slate-400">
                   <tr>
                     <th className="px-6 py-4">Customer</th>
-                    <th className="px-6 py-4">Month/Date</th>
+                    <th className="px-6 py-4">Details</th>
+                    <th className="px-6 py-4 text-center">Month</th>
                     <th className="px-6 py-4">Amount</th>
                     <th className="px-6 py-4 text-right">Action</th>
                   </tr>
@@ -335,12 +390,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <tr key={bill.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-6 py-4">
                           <p className="font-bold text-slate-800 text-sm">{user?.fullName}</p>
-                          <p className="text-[9px] text-red-400 font-bold uppercase tracking-widest">Unpaid</p>
+                          <p className={`text-[9px] font-bold uppercase tracking-widest ${bill.type === 'miscellaneous' ? 'text-amber-500' : 'text-red-400'}`}>
+                            {bill.type === 'miscellaneous' ? 'Other Due' : 'Unpaid Bill'}
+                          </p>
                         </td>
-                        <td className="px-6 py-4 text-xs font-medium text-slate-500">{bill.billingMonth}</td>
+                        <td className="px-6 py-4">
+                           <p className="text-xs text-slate-500">{bill.description || 'Monthly Internet Bill'}</p>
+                        </td>
+                        <td className="px-6 py-4 text-center text-xs font-medium text-slate-500">{bill.billingMonth}</td>
                         <td className="px-6 py-4 text-sm font-bold text-slate-700">৳{bill.amount}</td>
                         <td className="px-6 py-4 text-right">
-                          <button onClick={() => user && openPaymentModal(user, bill)} className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold">Collect Bill</button>
+                           <div className="flex items-center justify-end gap-2">
+                            <button onClick={() => setDeletingBill(bill)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete Bill">
+                              🗑️
+                            </button>
+                            <button onClick={() => user && openPaymentModal(user, bill)} className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold">Collect Bill</button>
+                           </div>
                         </td>
                       </tr>
                     ))
@@ -351,7 +416,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <p className="font-bold text-slate-800 text-sm">{user?.fullName}</p>
                           <p className="text-[9px] text-green-500 font-bold uppercase tracking-widest">Paid via {bill.method}</p>
                         </td>
-                        <td className="px-6 py-4 text-xs font-medium text-slate-500">{bill.date || bill.billingMonth}</td>
+                        <td className="px-6 py-4">
+                           <p className="text-xs text-slate-500">{bill.description || 'Monthly Internet Bill'}</p>
+                        </td>
+                        <td className="px-6 py-4 text-center text-xs font-medium text-slate-500">{bill.date || bill.billingMonth}</td>
                         <td className="px-6 py-4 text-sm font-bold text-slate-700">৳{bill.amount}</td>
                         <td className="px-6 py-4 text-right">
                           <span className="text-[9px] text-slate-400 font-bold italic">Transaction Logged</span>
@@ -412,6 +480,77 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   📤 Restore Backup
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Bill Confirmation Modal */}
+      {deletingBill && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[150] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl animate-in zoom-in duration-300 text-center">
+            <div className="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl">
+              🗑️
+            </div>
+            <h3 className="text-xl font-bold text-slate-800 mb-2">Delete Bill?</h3>
+            <p className="text-sm text-slate-500 mb-8 leading-relaxed">
+              Are you sure you want to delete this <span className="font-bold text-slate-800">৳{deletingBill.amount}</span> bill for <span className="font-bold text-slate-800">{deletingBill.billingMonth}</span>?
+            </p>
+            <div className="flex flex-col gap-3">
+              <button 
+                onClick={confirmDeleteBill}
+                className="w-full bg-red-600 text-white py-4 rounded-2xl font-bold hover:bg-red-700 shadow-lg shadow-red-100 active:scale-95 transition-all"
+              >
+                Yes, Delete Bill
+              </button>
+              <button 
+                onClick={() => setDeletingBill(null)}
+                className="w-full py-3 text-sm font-bold text-slate-400 hover:text-slate-600 transition-all"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Extra Due Modal */}
+      {showExtraDueModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2rem] w-full max-w-md p-8 shadow-2xl animate-in zoom-in duration-200">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-slate-800">Add Extra Charge</h3>
+              <button onClick={() => setShowExtraDueModal(null)} className="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+            <div className="space-y-4">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 mb-4">
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Adding charge for</p>
+                <p className="font-bold text-indigo-600">{showExtraDueModal.fullName} ({showExtraDueModal.username})</p>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Description</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g., Router Purchase, Connection Fee" 
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                  value={extraDueData.description}
+                  onChange={(e) => setExtraDueData({...extraDueData, description: e.target.value})}
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Amount (৳)</label>
+                <input 
+                  type="number" 
+                  placeholder="0.00" 
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  value={extraDueData.amount}
+                  onChange={(e) => setExtraDueData({...extraDueData, amount: Number(e.target.value)})}
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-8">
+              <button onClick={() => setShowExtraDueModal(null)} className="flex-1 py-3 text-sm font-bold text-slate-400">Cancel</button>
+              <button onClick={handleAddExtraDue} className="flex-[2] bg-indigo-600 text-white py-3 rounded-xl text-sm font-bold shadow-lg shadow-indigo-100 active:scale-95 transition-all">Add Charge</button>
             </div>
           </div>
         </div>
@@ -568,7 +707,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase">Name</label>
-                <input className="w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm" value={editingUser.fullName} onChange={(e)=>setEditingUser({...editingUser, fullName: e.target.value})} />
+                <input className="w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" value={editingUser.fullName} onChange={(e)=>setEditingUser({...editingUser, fullName: e.target.value})} />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase">User ID</label>
@@ -591,13 +730,24 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Expiry Date</label>
-                <input type="date" className="w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm" value={editingUser.expiryDate} onChange={(e)=>setEditingUser({...editingUser, expiryDate: e.target.value})} />
+                <label className="text-[10px] font-bold text-slate-400 uppercase">Status</label>
+                <select className="w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm" value={editingUser.status} onChange={(e)=>setEditingUser({...editingUser, status: e.target.value as any})}>
+                  <option value="active">Active</option>
+                  <option value="expired">Expired</option>
+                  <option value="suspended">Suspended</option>
+                </select>
+              </div>
+              <div className="md:col-span-2 space-y-1">
+                <label className="text-[10px] font-bold text-indigo-600 uppercase flex items-center gap-2">
+                  <span>📅 Internet Expiry Date</span>
+                  <span className="text-[8px] bg-indigo-50 px-2 py-0.5 rounded text-indigo-400">Change Manualy Anytime</span>
+                </label>
+                <input type="date" className="w-full px-4 py-3 bg-indigo-50 border-2 border-indigo-100 rounded-2xl text-sm font-bold text-indigo-700 outline-none focus:border-indigo-500" value={editingUser.expiryDate} onChange={(e)=>setEditingUser({...editingUser, expiryDate: e.target.value})} />
               </div>
             </div>
             <div className="flex gap-3 mt-8">
               <button onClick={()=>setEditingUser(null)} className="flex-1 py-3 text-sm font-bold text-slate-400">Cancel</button>
-              <button onClick={()=>{onUpdateUser(editingUser); setEditingUser(null); setNotification({message: "Profile updated!", type: "success"})}} className="flex-[2] bg-indigo-600 text-white py-3 rounded-2xl text-sm font-bold">Save Profile</button>
+              <button onClick={()=>{onUpdateUser(editingUser); setEditingUser(null); setNotification({message: "Customer records updated successfully!", type: "success"})}} className="flex-[2] bg-indigo-600 text-white py-3 rounded-2xl text-sm font-bold shadow-lg shadow-indigo-100">Update Record</button>
             </div>
           </div>
         </div>
@@ -637,6 +787,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl p-8">
             <h3 className="text-xl font-bold mb-1">Collect Bill Payment</h3>
             <p className="text-sm text-slate-500 mb-6">{payingUser.user.fullName} - {payingUser.bill.billingMonth}</p>
+            {payingUser.bill.description && (
+              <div className="mb-4 p-3 bg-amber-50 rounded-xl border border-amber-100">
+                <p className="text-[10px] font-bold text-amber-600 uppercase">Description</p>
+                <p className="text-sm font-medium text-slate-700">{payingUser.bill.description}</p>
+              </div>
+            )}
             <div className="space-y-4">
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Amount</label>
