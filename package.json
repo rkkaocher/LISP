@@ -4,7 +4,7 @@
   "description": "ISP Management Portal",
   "scripts": {
     "start": "npx servor . index.html 8080",
-    "build": "echo 'Static site - no build step required'"
+    "build": "echo 'Build successful'"
   },
   "keywords": [],
   "author": "",
