@@ -45,7 +45,7 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, packages, b
   const paidBills = sortedBills.filter(b => b.status === 'paid');
 
   return (
-    <div className="relative pb-24">
+    <div className="relative min-h-[calc(100vh-200px)]">
       <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="bg-indigo-600 rounded-[2.5rem] p-8 text-white shadow-2xl shadow-indigo-200 flex flex-col md:flex-row justify-between items-center gap-6 relative overflow-hidden">
           <div className="relative z-10 text-center md:text-left">
@@ -147,49 +147,112 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, packages, b
 
           <div className="lg:col-span-4 space-y-6">
             <div className="bg-indigo-900 rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden">
-              <h4 className="text-sm font-bold mb-6 opacity-80 uppercase tracking-widest">Technical Support</h4>
+              <h4 className="text-sm font-bold mb-6 opacity-80 uppercase tracking-widest">Customer Support</h4>
               <div className="space-y-4 relative z-10">
                 <a href="tel:+8801827166214" className="flex items-center gap-4 p-4 bg-white/10 rounded-3xl border border-white/5 hover:bg-white/20 transition-all group">
                   <span className="w-10 h-10 bg-indigo-500 rounded-2xl flex items-center justify-center text-lg">📞</span>
                   <div>
                     <p className="text-[10px] font-bold text-indigo-200 uppercase">24/7 Hotline</p>
-                    <p className="text-sm font-bold">+880 1827-166214</p>
+                    <p className="text-sm font-bold text-white tracking-tight">+880 1827-166214</p>
                   </div>
                 </a>
-                <button onClick={() => setShowAiChat(true)} className="w-full flex items-center gap-4 p-4 bg-indigo-500 rounded-3xl border border-indigo-400 group">
-                  <span className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center text-lg">🤖</span>
-                  <div className="text-left">
-                    <p className="text-[10px] font-bold text-white uppercase">AI Support</p>
-                    <p className="text-sm font-bold">Ask for help</p>
-                  </div>
-                </button>
+                <div className="p-4 bg-white/5 border border-white/10 rounded-3xl">
+                   <p className="text-[10px] font-bold text-indigo-300 uppercase mb-2">Office Address</p>
+                   <p className="text-xs text-slate-300 leading-relaxed">Rangpur Branch Office, City Center Plaza, Rangpur, Bangladesh.</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Floating AI Support Button */}
+      <div className="fixed bottom-6 right-6 z-[80]">
+        <button 
+          onClick={() => setShowAiChat(!showAiChat)}
+          className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl shadow-2xl transition-all active:scale-90 animate-bounce-subtle ${showAiChat ? 'bg-red-500 text-white rotate-90' : 'bg-indigo-600 text-white'}`}
+        >
+          {showAiChat ? '✕' : '🤖'}
+          {!showAiChat && (
+            <span className="absolute -top-1 -right-1 flex h-4 w-4">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-4 w-4 bg-indigo-500"></span>
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Floating AI Chat Window */}
       {showAiChat && (
-        <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-6 bg-slate-900/60 backdrop-blur-md">
-          <div className="bg-white w-full max-w-lg md:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col h-[90vh] md:h-[600px]">
+        <div className="fixed inset-0 z-[100] md:inset-auto md:bottom-24 md:right-6 md:w-[400px] flex items-end justify-center md:items-end md:justify-end animate-in slide-in-from-bottom-6 duration-300">
+          <div className="bg-white w-full h-full md:h-[550px] md:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col border border-slate-100">
             <div className="bg-indigo-600 p-6 flex justify-between items-center text-white">
-              <h3 className="font-bold">NexusConnect AI Support</h3>
-              <button onClick={() => setShowAiChat(false)} className="text-white hover:opacity-70">✕</button>
-            </div>
-            <div className="flex-grow p-6 overflow-y-auto space-y-4">
-              <div className="bg-slate-50 p-4 rounded-3xl rounded-tl-none text-sm text-slate-700 border border-slate-100">
-                Hi! How can I help you with your internet connection today?
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center text-xl">🤖</div>
+                <div>
+                  <h3 className="font-bold text-sm">NexusConnect Assistant</h3>
+                  <p className="text-[9px] opacity-70 uppercase tracking-widest">Always Online</p>
+                </div>
               </div>
-              {aiResponse && <div className="bg-indigo-50 p-4 rounded-3xl rounded-tr-none text-sm text-indigo-700 self-end ml-10 border border-indigo-100">{aiResponse}</div>}
-              {isLoading && <div className="text-center text-xs text-slate-400 italic">Thinking...</div>}
+              <button onClick={() => setShowAiChat(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors">✕</button>
             </div>
-            <div className="p-6 bg-slate-50 border-t flex gap-2">
-              <input type="text" className="flex-grow px-4 py-2 rounded-xl border outline-none" placeholder="Type your issue..." value={aiMessage} onChange={(e) => setAiMessage(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAiAsk()} />
-              <button onClick={handleAiAsk} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold">Ask</button>
+            
+            <div className="flex-grow p-6 overflow-y-auto space-y-4 bg-slate-50/50">
+              <div className="flex gap-3">
+                <div className="w-8 h-8 bg-indigo-100 rounded-xl flex items-center justify-center text-xs self-end">🤖</div>
+                <div className="max-w-[80%] bg-white p-4 rounded-2xl rounded-bl-none text-xs text-slate-700 shadow-sm border border-slate-100">
+                  নমস্কার! আমি নেক্সাস কানেক্ট AI। আপনার ইন্টারনেট কানেকশন বা বিল নিয়ে কোনো সমস্যা হলে আমাকে জিজ্ঞাসা করতে পারেন।
+                </div>
+              </div>
+
+              {aiResponse && (
+                <div className="flex gap-3 flex-row-reverse">
+                  <div className="w-8 h-8 bg-indigo-600 text-white rounded-xl flex items-center justify-center text-xs self-end font-bold">U</div>
+                  <div className="max-w-[80%] bg-indigo-600 p-4 rounded-2xl rounded-br-none text-xs text-white shadow-md shadow-indigo-100">
+                    {aiResponse}
+                  </div>
+                </div>
+              )}
+
+              {isLoading && (
+                <div className="flex gap-2 items-center text-[10px] text-slate-400 ml-11">
+                  <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce"></span>
+                  <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+                  <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+                  AI ভাবছে...
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 bg-white border-t border-slate-50 flex gap-2">
+              <input 
+                type="text" 
+                className="flex-grow px-5 py-3 rounded-2xl bg-slate-50 border-none outline-none text-xs focus:ring-2 focus:ring-indigo-500 transition-all" 
+                placeholder="সমস্যাটি এখানে লিখুন..." 
+                value={aiMessage} 
+                onChange={(e) => setAiMessage(e.target.value)} 
+                onKeyPress={(e) => e.key === 'Enter' && handleAiAsk()} 
+              />
+              <button 
+                onClick={handleAiAsk} 
+                className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all"
+              >
+                🚀
+              </button>
             </div>
           </div>
         </div>
       )}
+
+      <style>{`
+        @keyframes bounce-subtle {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-5px); }
+        }
+        .animate-bounce-subtle {
+          animation: bounce-subtle 2s infinite ease-in-out;
+        }
+      `}</style>
     </div>
   );
 };
