@@ -175,19 +175,19 @@ const App: React.FC = () => {
       <main className="flex-grow container mx-auto px-4 py-8">
         {auth.user?.role === 'admin' ? (
           <AdminDashboard 
-            users={users} 
-            packages={packages} 
-            bills={bills}
-            onUpdateUser={updateUser}
-            onAddUser={addUser}
-            onDeleteUser={deleteUser}
-            onAddBill={addBillingRecord}
-            onDeleteBill={deleteBill}
-            onDeleteBillsByMonth={deleteBillsByMonth}
-            onGenerateMonthlyBills={generateMonthlyBills}
-            currentUser={auth.user}
-            onExportData={handleExportData}
-            onImportData={handleImportData}
+            users={users || []}
+            packages={packages || []}
+            bills={bills || []}
+            onUpdateUser={updateUser || (() => {})}
+            onAddUser={addUser || (() => {})}
+            onDeleteUser={deleteUser || (() => {})}
+            onAddBill={addBillingRecord || (() => {})}
+            onDeleteBill={deleteBill || (() => {})}
+            onDeleteBillsByMonth={deleteBillsByMonth || (() => {})}
+            onGenerateMonthlyBills={generateMonthlyBills || (() => 0)}
+            currentUser={auth.user || null}
+            onExportData={handleExportData || (() => {})}
+            onImportData={handleImportData || (() => {})}
           />
         ) : (
           <CustomerDashboard 
