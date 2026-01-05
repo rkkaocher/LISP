@@ -94,6 +94,10 @@ const App: React.FC = () => {
     setBills(prev => prev.filter(b => b.id !== id));
   };
 
+  const deleteBillsByMonth = (month: string) => {
+    setBills(prev => prev.filter(b => b.billingMonth !== month));
+  };
+
   const generateMonthlyBills = (month: string, targetUserIds?: string[]): number => {
     const customers = users.filter(u => u.role === 'customer');
     const newBills: BillingRecord[] = [];
@@ -179,6 +183,7 @@ const App: React.FC = () => {
             onDeleteUser={deleteUser}
             onAddBill={addBillingRecord}
             onDeleteBill={deleteBill}
+            onDeleteBillsByMonth={deleteBillsByMonth}
             onGenerateMonthlyBills={generateMonthlyBills}
             currentUser={auth.user}
             onExportData={handleExportData}

@@ -1,6 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User, Package, BillingRecord } from '../types';
 import { getSupportAdvice } from '../services/geminiService';
+
+interface Message {
+  id: string;
+  role: 'user' | 'model';
+  text: string;
+}
 
 interface CustomerDashboardProps {
   user: User;
@@ -11,16 +17,43 @@ interface CustomerDashboardProps {
 const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, packages, bills }) => {
   const [showAiChat, setShowAiChat] = useState(false);
   const [aiMessage, setAiMessage] = useState('');
-  const [aiResponse, setAiResponse] = useState('');
+  const [chatHistory, setChatHistory] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatHistory, isLoading]);
+
+  // Dynamic status calculation based on expiry date
+  const expiryDateObj = new Date(user.expiryDate);
+  expiryDateObj.setHours(23, 59, 59, 999); // Set to end of the day
+  const isExpired = expiryDateObj < new Date();
+  
+  const currentStatus = isExpired ? 'expired' : user.status;
+  const statusText = currentStatus === 'active' ? 'সচল (Active)' : (isExpired ? 'মেয়াদ উত্তীর্ণ (Expired)' : 'বন্ধ (Inactive)');
+  const statusColorClass = currentStatus === 'active' ? 'bg-green-400/20 text-green-300 border-green-400/30' : 'bg-red-400/20 text-red-300 border-red-400/30';
 
   const currentPackage = packages.find(p => p.id === user.packageId);
 
   const handleAiAsk = async () => {
-    if (!aiMessage.trim()) return;
+    if (!aiMessage.trim() || isLoading) return;
+
+    const userMsg = aiMessage;
+    setAiMessage('');
+    
+    const newUserMessage: Message = { id: Date.now().toString(), role: 'user', text: userMsg };
+    setChatHistory(prev => [...prev, newUserMessage]);
+    
     setIsLoading(true);
-    const advice = await getSupportAdvice(aiMessage);
-    setAiResponse(advice);
+    
+    const historyForApi = chatHistory.map(m => ({ role: m.role, text: m.text }));
+    const advice = await getSupportAdvice(userMsg, historyForApi);
+    
+    const newAiMessage: Message = { id: (Date.now() + 1).toString(), role: 'model', text: advice || 'দুঃখিত, আমি উত্তর দিতে পারছি না।' };
+    setChatHistory(prev => [...prev, newAiMessage]);
     setIsLoading(false);
   };
 
@@ -53,8 +86,8 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, packages, b
               {currentPackage?.name}
             </h2>
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mt-4">
-              <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${user.status === 'active' ? 'bg-green-400/20 text-green-300 border-green-400/30' : 'bg-red-400/20 text-red-300 border-red-400/30'}`}>
-                ● {user.status === 'active' ? 'সচল (Active)' : 'বন্ধ (Inactive)'}
+              <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${statusColorClass}`}>
+                ● {statusText}
               </span>
               <span className="bg-white/10 border border-white/10 px-3 py-1 rounded-full text-[10px] font-medium">আইপি: 103.145.22.12</span>
             </div>
@@ -148,16 +181,16 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, packages, b
             <div className="bg-indigo-900 rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden">
               <h4 className="text-sm font-bold mb-6 opacity-80 uppercase tracking-widest">কাস্টমার সাপোর্ট</h4>
               <div className="space-y-4 relative z-10">
-                <a href="tel:+8801827166214" className="flex items-center gap-4 p-4 bg-white/10 rounded-3xl border border-white/5 hover:bg-white/20 transition-all group">
+                <a href="tel:01827166214" className="flex items-center gap-4 p-4 bg-white/10 rounded-3xl border border-white/5 hover:bg-white/20 transition-all group">
                   <span className="w-10 h-10 bg-indigo-500 rounded-2xl flex items-center justify-center text-lg">📞</span>
                   <div>
                     <p className="text-[10px] font-bold text-indigo-200 uppercase">২৪/৭ হটলাইন</p>
-                    <p className="text-sm font-bold text-white tracking-tight">+৮৮০ ১৮২৭-১৬৬২১৪</p>
+                    <p className="text-sm font-bold text-white tracking-tight">০১৮২৭-১৬৬২১৪</p>
                   </div>
                 </a>
                 <div className="p-4 bg-white/5 border border-white/10 rounded-3xl">
                    <p className="text-[10px] font-bold text-indigo-300 uppercase mb-2">অফিস ঠিকানা</p>
-                   <p className="text-xs text-slate-300 leading-relaxed">রংপুর ব্রাঞ্চ অফিস, সিটি সেন্টার প্লাজা, রংপুর, বাংলাদেশ।</p>
+                   <p className="text-xs text-slate-300 leading-relaxed font-medium">কলেজ পাড়া ,আকবরিয়া মসজিদ সংলগ্ন ,রংপুর সদর ,রংপুর</p>
                 </div>
               </div>
             </div>
@@ -196,31 +229,38 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, packages, b
               <button onClick={() => setShowAiChat(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors">✕</button>
             </div>
             
-            <div className="flex-grow p-6 overflow-y-auto space-y-4 bg-slate-50/50">
-              <div className="flex gap-3">
-                <div className="w-8 h-8 bg-indigo-100 rounded-xl flex items-center justify-center text-xs self-end">🤖</div>
-                <div className="max-w-[80%] bg-white p-4 rounded-2xl rounded-bl-none text-xs text-slate-700 shadow-sm border border-slate-100">
-                  নমস্কার! আমি নেক্সাস কানেক্ট AI। আপনার ইন্টারনেট কানেকশন বা বিল নিয়ে কোনো সমস্যা হলে আমাকে জিজ্ঞাসা করতে পারেন।
+            <div className="flex-grow p-4 overflow-y-auto space-y-4 bg-slate-50/50 flex flex-col">
+              {chatHistory.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center space-y-4 opacity-40 py-10">
+                   <span className="text-5xl">📡</span>
+                   <p className="text-xs font-bold text-slate-400">আপনার সমস্যাটি লিখুন,<br/>আমি সাহায্য করতে প্রস্তুত।</p>
                 </div>
-              </div>
-
-              {aiResponse && (
-                <div className="flex gap-3 flex-row-reverse">
-                  <div className="w-8 h-8 bg-indigo-600 text-white rounded-xl flex items-center justify-center text-xs self-end font-bold">U</div>
-                  <div className="max-w-[80%] bg-indigo-600 p-4 rounded-2xl rounded-br-none text-xs text-white shadow-md shadow-indigo-100">
-                    {aiResponse}
+              ) : (
+                chatHistory.map((msg) => (
+                  <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} gap-2`}>
+                    {msg.role === 'model' && (
+                      <div className="w-7 h-7 bg-indigo-100 rounded-lg flex items-center justify-center text-[10px] self-end mb-1">🤖</div>
+                    )}
+                    <div className={`max-w-[85%] p-4 rounded-2xl text-[11px] font-medium leading-relaxed shadow-sm ${
+                      msg.role === 'user' 
+                      ? 'bg-indigo-600 text-white rounded-br-none' 
+                      : 'bg-white text-slate-700 border border-slate-100 rounded-bl-none'
+                    }`}>
+                      {msg.text}
+                    </div>
                   </div>
-                </div>
+                ))
               )}
 
               {isLoading && (
-                <div className="flex gap-2 items-center text-[10px] text-slate-400 ml-11">
+                <div className="flex gap-2 items-center text-[10px] text-slate-400 ml-9">
                   <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce"></span>
                   <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce [animation-delay:0.2s]"></span>
                   <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce [animation-delay:0.4s]"></span>
                   AI ভাবছে...
                 </div>
               )}
+              <div ref={chatEndRef} />
             </div>
 
             <div className="p-4 bg-white border-t border-slate-50 flex gap-2">
@@ -234,7 +274,8 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, packages, b
               />
               <button 
                 onClick={handleAiAsk} 
-                className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all"
+                disabled={isLoading || !aiMessage.trim()}
+                className={`w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 🚀
               </button>

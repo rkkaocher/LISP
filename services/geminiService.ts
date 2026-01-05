@@ -22,16 +22,36 @@ export async function getPlanRecommendation(userProfile: string) {
   }
 }
 
-export async function getSupportAdvice(issue: string) {
+export async function getSupportAdvice(issue: string, history: {role: 'user' | 'model', text: string}[] = []) {
   try {
     const ai = getAI();
+    
+    const contents = history.map(h => ({
+      role: h.role,
+      parts: [{ text: h.text }]
+    }));
+    
+    contents.push({
+      role: 'user',
+      parts: [{ text: issue }]
+    });
+
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `You are an ISP technical support bot. Help a customer with this issue: "${issue}". 
-      Keep it brief, technical, and professional. Suggest basic troubleshooting like restarting the router.`,
+      contents: contents,
+      config: {
+        systemInstruction: `You are the official NexusConnect ISP Support Assistant. 
+        1. Be technical but explain things simply.
+        2. Always recommend restarting the router (ONU/Router) as the first troubleshooting step for speed or connection issues.
+        3. Respond in the same language the user is using (Bengali or English).
+        4. If the user asks for the hotline number, provide: 01827166214.
+        5. If they ask about the office location, say: "কলেজ পাড়া ,আকবরিয়া মসজিদ সংলগ্ন ,রংপুর সদর ,রংপুর".
+        6. Keep answers concise.`,
+      }
     });
     return response.text;
   } catch (error) {
-    return "Please contact our 24/7 hotline for immediate assistance.";
+    console.error("Support Advice Error:", error);
+    return "দুঃখিত, বর্তমানে সার্ভারে সমস্যা হচ্ছে। অনুগ্রহ করে আমাদের হটলাইন ০১৮২৭-১৬৬২১৪ নাম্বারে কল করুন।";
   }
 }
