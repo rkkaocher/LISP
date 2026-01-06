@@ -13,219 +13,298 @@ interface AdminDashboardProps {
   onDeleteBill: (id: string) => void;
   onUpdatePackage: (p: Package) => void;
   onAddPackage: (p: Package) => void;
-  onDeletePackage: (id: string) => void; // Added for cleanup
+  onDeletePackage: (id: string) => void;
   onGenerateMonthlyBills: (month: string) => number;
-  onExportData: () => void;
 }
 
+const MONTHS_BN = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];
+
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
-  users = [], 
-  packages = [], 
-  bills = [], 
-  onUpdateUser,
-  onAddUser, 
-  onDeleteUser, 
-  onUpdateBill,
-  onAddPackage,
-  onUpdatePackage,
-  onDeletePackage,
+  users = [], packages = [], bills = [], 
+  onAddUser, onDeleteUser, onAddBill, onUpdateBill,
+  onAddPackage, onUpdatePackage, onDeletePackage,
+  onGenerateMonthlyBills 
 }) => {
+  // --- STATES ---
   const [activeTab, setActiveTab] = useState<'users' | 'bills' | 'packages'>('users');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [editingPackage, setEditingPackage] = useState<Package | null>(null);
+  const [extraChargeUser, setExtraChargeUser] = useState<User | null>(null);
+  const [extraChargeAmount, setExtraChargeAmount] = useState('');
+  const [extraChargeDesc, setExtraChargeDesc] = useState('');
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 
+  // New User State
+  const [newUser, setNewUser] = useState({ fullName: '', username: '', password: 'password123', packageId: packages[0]?.id || '' });
+
+  const now = new Date();
+  const currentMonth = MONTHS_BN[now.getMonth()] + ' ' + now.getFullYear();
+
+  // --- NOTIFICATION ---
   const showNotification = (message: string, type: 'success' | 'error') => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 4000);
   };
 
-  // --- LOGIC: Package Edit/Delete ---
-  const handleSavePackage = (pkg: Package) => {
-    onUpdatePackage(pkg);
-    setEditingPackage(null);
-    showNotification('প্যাকেজ আপডেট করা হয়েছে', 'success');
+  // --- STATS ---
+  const stats = {
+    totalUsers: users.filter(u => u.role === 'customer').length,
+    revenue: bills.filter(b => b.status === 'paid' && b.billingMonth === currentMonth).reduce((acc, b) => acc + b.amount, 0),
+    pending: bills.filter(b => b.status === 'pending').length
   };
 
-  const handleDeletePackage = (id: string) => {
-    if (window.confirm('আপনি কি এই প্যাকেজটি ডিলিট করতে চান?')) {
-      onDeletePackage(id);
-      showNotification('প্যাকেজ ডিলিট হয়েছে', 'success');
-    }
+  // --- LOGIC: CSV IMPORT ---
+  const handleCsvImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      try {
+        const lines = text.split('\n').filter(l => l.trim());
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+        let added = 0;
+        for (let i = 1; i < lines.length; i++) {
+          const values = lines[i].split(',');
+          const row: any = {};
+          headers.forEach((h, idx) => row[h] = values[idx]?.trim());
+          if (row.name && row.username) {
+            onAddUser({
+              id: 'u' + Date.now() + i,
+              fullName: row.name,
+              username: row.username,
+              password: row.password || 'password123',
+              role: 'customer',
+              packageId: packages[0]?.id || '',
+              status: 'active',
+              balance: 0,
+              dataUsedGb: 0,
+              dataLimitGb: 0,
+              expiryDate: '',
+              upstreamProvider: 'Amber IT'
+            });
+            added++;
+          }
+        }
+        showNotification(`${added} জন কাস্টমার যোগ হয়েছে`, 'success');
+        setShowImportModal(false);
+      } catch (err) { showNotification('CSV ফাইলে সমস্যা', 'error'); }
+    };
+    reader.readAsText(file);
   };
 
-  // --- LOGIC: Data Export (JSON) ---
+  // --- LOGIC: EXTRA CHARGE ---
+  const handleExtraCharge = () => {
+    if (!extraChargeUser || !extraChargeAmount) return;
+    onAddBill({
+      id: 'b' + Date.now(),
+      userId: extraChargeUser.id,
+      amount: Number(extraChargeAmount),
+      date: new Date().toISOString().split('T')[0],
+      billingMonth: currentMonth,
+      status: 'pending',
+      method: 'None',
+      type: 'miscellaneous',
+      description: extraChargeDesc || 'অতিরিক্ত চার্জ'
+    });
+    setExtraChargeUser(null); setExtraChargeAmount(''); setExtraChargeDesc('');
+    showNotification('এক্সট্রা চার্জ যোগ হয়েছে', 'success');
+  };
+
+  // --- LOGIC: EXPORT JSON ---
   const handleExportJSON = () => {
     const dataStr = JSON.stringify({ users, packages, bills }, null, 2);
     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    
-    const exportFileDefaultName = `isp_backup_${new Date().toISOString().split('T')[0]}.json`;
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
-    linkElement.click();
-    showNotification('ডাটা এক্সপোর্ট সফল হয়েছে', 'success');
+    const link = document.createElement('a');
+    link.href = dataUri; link.download = `isp_backup_${Date.now()}.json`;
+    link.click();
+    showNotification('ডাটা ব্যাকআপ সফল', 'success');
   };
 
+  const filteredUsers = users.filter(u => u.role === 'customer' && (u.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || u.username.toLowerCase().includes(searchTerm.toLowerCase())));
+
   return (
-    <div className="min-h-screen bg-slate-50 pb-20 p-6">
+    <div className="min-h-screen bg-slate-50 pb-20 p-4 md:p-8">
+      {/* Notification Toast */}
       {notification && (
-        <div className="fixed top-5 right-5 bg-white border-l-4 border-indigo-500 shadow-2xl p-4 z-50 rounded-r-lg animate-in slide-in-from-right">
-          <p className="font-bold text-slate-800">{notification.message}</p>
+        <div className={`fixed top-5 right-5 z-50 p-4 rounded-2xl shadow-2xl border-l-4 bg-white animate-in slide-in-from-right ${notification.type === 'success' ? 'border-green-500' : 'border-red-500'}`}>
+          <p className="font-black text-slate-800">{notification.message}</p>
         </div>
       )}
 
-      {/* Top Action Bar */}
-      <div className="max-w-7xl mx-auto flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tight">ISP Controller</h1>
-        <button 
-          onClick={handleExportJSON}
-          className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 text-white rounded-xl font-bold hover:bg-black transition-all shadow-lg"
-        >
-          <span>📥</span> এক্সপোর্ট ব্যাকআপ (JSON)
-        </button>
+      {/* Action Bar */}
+      <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+        <h1 className="text-3xl font-black text-slate-800 uppercase tracking-tighter italic">ISP<span className="text-indigo-600">MANAGER</span></h1>
+        <div className="flex gap-2 flex-wrap justify-center">
+          <button onClick={handleExportJSON} className="px-4 py-2 bg-slate-800 text-white rounded-xl font-bold text-sm">📥 JSON ব্যাকআপ</button>
+          <button onClick={() => setShowImportModal(true)} className="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-xl font-bold text-sm">📄 CSV ইমপোর্ট</button>
+          <button onClick={() => onGenerateMonthlyBills(currentMonth)} className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-lg">⚡ বিল জেনারেট</button>
+        </div>
       </div>
 
-      {/* Main Navigation */}
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-8">
-        
-        {/* Left Sidebar: Tab Navigation */}
-        <div className="lg:col-span-1 space-y-2">
-          {['users', 'bills', 'packages'].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab as any)}
-              className={`w-full text-left px-6 py-4 rounded-2xl font-bold capitalize transition-all ${
-                activeTab === tab ? 'bg-indigo-600 text-white shadow-indigo-200 shadow-xl scale-105' : 'bg-white text-slate-500 hover:bg-slate-100'
-              }`}
-            >
-              {tab === 'users' && '👥 কাস্টমার লিস্ট'}
-              {tab === 'bills' && '💳 বিলিং হিস্টোরি'}
-              {tab === 'packages' && '📦 প্যাকেজ সেটিংস'}
-            </button>
-          ))}
+      {/* Stats Cards */}
+      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+        <div className="bg-white p-6 rounded-[32px] border shadow-sm">
+          <p className="text-slate-400 text-xs font-black uppercase tracking-widest">মোট ইউজার</p>
+          <h2 className="text-4xl font-black text-slate-800">{stats.totalUsers}</h2>
         </div>
+        <div className="bg-white p-6 rounded-[32px] border shadow-sm">
+          <p className="text-slate-400 text-xs font-black uppercase tracking-widest">মাসিক আয়</p>
+          <h2 className="text-4xl font-black text-emerald-600">৳{stats.revenue}</h2>
+        </div>
+        <div className="bg-white p-6 rounded-[32px] border shadow-sm">
+          <p className="text-slate-400 text-xs font-black uppercase tracking-widest">বাকি বিল</p>
+          <h2 className="text-4xl font-black text-rose-500">{stats.pending} <span className="text-sm">টি</span></h2>
+        </div>
+      </div>
 
-        {/* Right Content Area */}
-        <div className="lg:col-span-3">
-          {/* PACKAGE MANAGEMENT VIEW */}
-          {activeTab === 'packages' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {packages.map(pkg => (
-                <div key={pkg.id} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 relative group">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="text-xl font-black text-slate-800">{pkg.name}</h3>
-                      <p className="text-indigo-600 font-bold text-lg">৳{pkg.price}</p>
-                    </div>
-                    <span className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-black uppercase">
-                      {pkg.speed}
-                    </span>
-                  </div>
-                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button 
-                      onClick={() => setEditingPackage(pkg)}
-                      className="flex-1 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-200"
-                    >
-                      এডিট
-                    </button>
-                    <button 
-                      onClick={() => handleDeletePackage(pkg.id)}
-                      className="flex-1 py-2 bg-red-50 text-red-600 rounded-xl font-bold text-sm hover:bg-red-100"
-                    >
-                      ডিলিট
-                    </button>
+      {/* Tabs */}
+      <div className="max-w-7xl mx-auto flex gap-2 mb-8 bg-white p-1.5 rounded-2xl border w-fit shadow-sm">
+        {['users', 'bills', 'packages'].map(t => (
+          <button key={t} onClick={() => setActiveTab(t as any)} className={`px-8 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === t ? 'bg-indigo-600 text-white shadow-xl' : 'text-slate-400'}`}>
+            {t === 'users' ? 'Customers' : t === 'bills' ? 'Billing' : 'Packages'}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      <div className="max-w-7xl mx-auto">
+        {activeTab === 'users' && (
+          <div className="bg-white rounded-[32px] shadow-sm border border-slate-100 overflow-hidden">
+            <div className="p-6 flex flex-col md:flex-row justify-between gap-4 border-b">
+              <input type="text" placeholder="নাম বা আইডি দিয়ে সার্চ..." className="bg-slate-50 px-5 py-3 rounded-2xl border-none ring-1 ring-slate-200 outline-none w-full md:w-96 focus:ring-2 focus:ring-indigo-500" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+              <button onClick={() => setShowAddModal(true)} className="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black">+ নতুন কাস্টমার</button>
+            </div>
+            <table className="w-full">
+              <thead className="bg-slate-50 text-[10px] uppercase font-black text-slate-400">
+                <tr><th className="px-6 py-4 text-left">কাস্টমার</th><th className="px-6 py-4 text-left">প্যাকেজ</th><th className="px-6 py-4 text-left">ব্যালেন্স</th><th className="px-6 py-4 text-right">অ্যাকশন</th></tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {filteredUsers.map(u => (
+                  <tr key={u.id} className="hover:bg-slate-50/50">
+                    <td className="px-6 py-4">
+                      <p className="font-black text-slate-800">{u.fullName}</p>
+                      <p className="text-xs font-bold text-slate-400">@{u.username}</p>
+                    </td>
+                    <td className="px-6 py-4 font-bold text-slate-600">{packages.find(p => p.id === u.packageId)?.name || 'N/A'}</td>
+                    <td className="px-6 py-4 font-mono font-black text-indigo-600">৳{u.balance}</td>
+                    <td className="px-6 py-4 text-right space-x-3">
+                      <button onClick={() => setExtraChargeUser(u)} className="text-emerald-600 font-black text-[10px] uppercase hover:underline">চার্জ যোগ</button>
+                      <button onClick={() => onDeleteUser(u.id)} className="text-rose-500 font-black text-[10px] uppercase hover:underline">ডিলিট</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {activeTab === 'bills' && (
+          <div className="bg-white rounded-[32px] shadow-sm border border-slate-100 overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-slate-50 text-[10px] uppercase font-black text-slate-400">
+                <tr><th className="px-6 py-4 text-left">কাস্টমার</th><th className="px-6 py-4 text-left">মাস ও বিবরণ</th><th className="px-6 py-4 text-left">টাকা</th><th className="px-6 py-4 text-left">অবস্থা</th><th className="px-6 py-4 text-right">অ্যাকশন</th></tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {bills.slice().reverse().map(b => (
+                  <tr key={b.id}>
+                    <td className="px-6 py-4 font-bold">{users.find(u => u.id === b.userId)?.fullName}</td>
+                    <td className="px-6 py-4">
+                      <p className="text-sm font-bold">{b.billingMonth}</p>
+                      <p className="text-[10px] text-slate-400 italic">{b.description}</p>
+                    </td>
+                    <td className="px-6 py-4 font-black">৳{b.amount}</td>
+                    <td className="px-6 py-4">
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${b.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700 animate-pulse'}`}>{b.status}</span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      {b.status === 'pending' && <button onClick={() => onUpdateBill({...b, status: 'paid'})} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase">পেইড মার্ক</button>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {activeTab === 'packages' && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-indigo-600 p-8 rounded-[32px] text-white flex flex-col justify-center items-center text-center shadow-xl">
+               <h3 className="text-xl font-black mb-2">নতুন প্যাকেজ</h3>
+               <p className="text-indigo-100 text-xs mb-6">আপনার সার্ভিসের জন্য নতুন প্ল্যান যোগ করুন</p>
+               <button onClick={() => setEditingPackage({id: 'pkg'+Date.now(), name: '', price: 0, speed: '', features: []})} className="w-full py-3 bg-white text-indigo-600 rounded-2xl font-black shadow-lg">তৈরি করুন</button>
+            </div>
+            {packages.map(p => (
+              <div key={p.id} className="bg-white p-8 rounded-[32px] border shadow-sm group hover:border-indigo-400 transition-all">
+                <h3 className="text-2xl font-black text-slate-800">{p.name}</h3>
+                <p className="text-4xl font-black text-indigo-600 my-4">৳{p.price}</p>
+                <div className="flex justify-between items-center mt-6">
+                  <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{p.speed}</span>
+                  <div className="space-x-2">
+                    <button onClick={() => setEditingPackage(p)} className="text-indigo-600 font-bold text-xs">এডিট</button>
+                    <button onClick={() => onDeletePackage(p.id)} className="text-rose-500 font-bold text-xs">ডিলিট</button>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-
-          {/* CUSTOMER PORTAL / BILL HISTORY VIEW */}
-          {activeTab === 'bills' && (
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-              <div className="p-6 border-b border-slate-50 bg-slate-50/50">
-                <h2 className="font-black text-slate-800">পেমেন্ট স্ট্যাটাস ও ট্র্যাকিং</h2>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="text-left text-slate-400 text-xs uppercase tracking-widest bg-slate-50">
-                      <th className="px-6 py-4">কাস্টমার</th>
-                      <th className="px-6 py-4">মাস</th>
-                      <th className="px-6 py-4">পরিমাণ</th>
-                      <th className="px-6 py-4">অবস্থা</th>
-                      <th className="px-6 py-4">বকেয়া</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {bills.slice().reverse().map(bill => {
-                      const user = users.find(u => u.id === bill.userId);
-                      return (
-                        <tr key={bill.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-6 py-4">
-                            <p className="font-bold text-slate-800">{user?.fullName}</p>
-                            <p className="text-xs text-slate-400">ID: {user?.username}</p>
-                          </td>
-                          <td className="px-6 py-4 text-sm font-medium">{bill.billingMonth}</td>
-                          <td className="px-6 py-4 font-black text-slate-700">৳{bill.amount}</td>
-                          <td className="px-6 py-4">
-                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
-                              bill.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700 animate-pulse'
-                            }`}>
-                              {bill.status === 'paid' ? 'Paid' : 'Unpaid'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className="font-mono text-slate-600">৳{user?.balance || 0}</span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Edit Package Modal */}
+      {/* --- ALL MODALS --- */}
+      
+      {/* CSV Import Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-[40px] p-10 max-w-sm w-full text-center">
+            <div className="text-5xl mb-4">📊</div>
+            <h2 className="text-2xl font-black mb-2">CSV ইমপোর্ট</h2>
+            <p className="text-slate-500 text-sm mb-6">ফাইলে Name, Username কলাম থাকা বাধ্যতামূলক</p>
+            <input type="file" accept=".csv" onChange={handleCsvImport} className="hidden" id="csvFile" />
+            <label htmlFor="csvFile" className="block w-full py-4 bg-indigo-600 text-white rounded-2xl font-black cursor-pointer shadow-lg">ফাইল সিলেক্ট করুন</button>
+            <button onClick={() => setShowImportModal(false)} className="mt-4 text-slate-400 font-bold">বাতিল</button>
+          </div>
+        </div>
+      )}
+
+      {/* Package Edit/Add Modal */}
       {editingPackage && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-[40px] p-10 max-w-md w-full shadow-2xl">
-            <h2 className="text-3xl font-black text-slate-800 mb-6">প্যাকেজ এডিট</h2>
+            <h2 className="text-3xl font-black text-slate-800 mb-8">প্যাকেজ সেটিংস</h2>
             <div className="space-y-4">
-              <div>
-                <label className="text-xs font-black text-slate-400 uppercase ml-2">প্যাকেজ নাম</label>
-                <input 
-                  className="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 ring-indigo-500 outline-none font-bold"
-                  value={editingPackage.name}
-                  onChange={e => setEditingPackage({...editingPackage, name: e.target.value})}
-                />
-              </div>
-              <div>
-                <label className="text-xs font-black text-slate-400 uppercase ml-2">মূল্য (৳)</label>
-                <input 
-                  type="number"
-                  className="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 ring-indigo-500 outline-none font-bold text-indigo-600"
-                  value={editingPackage.price}
-                  onChange={e => setEditingPackage({...editingPackage, price: Number(e.target.value)})}
-                />
-              </div>
+              <input placeholder="প্যাকেজ নাম" className="w-full p-4 bg-slate-50 border-none rounded-2xl font-bold ring-1 ring-slate-200" value={editingPackage.name} onChange={e => setEditingPackage({...editingPackage, name: e.target.value})} />
+              <input type="number" placeholder="৳ দাম" className="w-full p-4 bg-slate-50 border-none rounded-2xl font-bold ring-1 ring-slate-200" value={editingPackage.price} onChange={e => setEditingPackage({...editingPackage, price: Number(e.target.value)})} />
+              <input placeholder="গতি (যেমন: 10Mbps)" className="w-full p-4 bg-slate-50 border-none rounded-2xl font-bold ring-1 ring-slate-200" value={editingPackage.speed} onChange={e => setEditingPackage({...editingPackage, speed: e.target.value})} />
             </div>
             <div className="mt-10 flex gap-4">
-              <button 
-                onClick={() => setEditingPackage(null)}
-                className="flex-1 py-4 font-bold text-slate-400"
-              >
-                বাতিল
-              </button>
-              <button 
-                onClick={() => handleSavePackage(editingPackage)}
-                className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-lg shadow-indigo-200"
-              >
-                আপডেট করুন
-              </button>
+              <button onClick={() => {
+                if(packages.some(p => p.id === editingPackage.id)) onUpdatePackage(editingPackage);
+                else onAddPackage(editingPackage);
+                setEditingPackage(null);
+                showNotification('সেভ হয়েছে', 'success');
+              }} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-lg shadow-indigo-200">সেভ করুন</button>
+              <button onClick={() => setEditingPackage(null)} className="flex-1 py-4 font-bold text-slate-400">বাতিল</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Extra Charge Modal */}
+      {extraChargeUser && (
+        <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-[40px] p-10 max-w-md w-full shadow-2xl">
+            <h2 className="text-2xl font-black mb-2">অতিরিক্ত চার্জ</h2>
+            <p className="text-slate-500 mb-6 font-bold">কাস্টমার: {extraChargeUser.fullName}</p>
+            <div className="space-y-4">
+              <input type="number" placeholder="টাকার পরিমাণ (৳)" className="w-full p-4 bg-slate-100 rounded-2xl font-bold outline-none ring-2 ring-transparent focus:ring-indigo-500" value={extraChargeAmount} onChange={e => setExtraChargeAmount(e.target.value)} />
+              <input placeholder="বিবরণ (যেমন: রাউটার কেনা)" className="w-full p-4 bg-slate-100 rounded-2xl font-bold outline-none ring-2 ring-transparent focus:ring-indigo-500" value={extraChargeDesc} onChange={e => setExtraChargeDesc(e.target.value)} />
+            </div>
+            <div className="mt-8 flex gap-4">
+              <button onClick={handleExtraCharge} className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black">চার্জ যোগ করুন</button>
+              <button onClick={() => setExtraChargeUser(null)} className="flex-1 py-4 font-bold text-slate-400">বাতিল</button>
             </div>
           </div>
         </div>
