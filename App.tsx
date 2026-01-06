@@ -38,6 +38,43 @@ const App: React.FC = () => {
     localStorage.setItem('isp_bills', JSON.stringify(bills));
   }, [bills]);
 
+  // এই useEffect টা যোগ করা হয়েছে — ডিফল্ট ইউজার অটো যোগ করবে
+  useEffect(() => {
+    if (users.length === 0) {
+      const defaultUsers: User[] = [
+        {
+          id: 'admin1',
+          fullName: 'System Administrator',
+          username: 'admin',
+          password: 'password123',
+          role: 'admin',
+          packageId: '',
+          status: 'active',
+          expiryDate: '2026-12-31',
+          balance: 0,
+          dataUsedGb: 0,
+          dataLimitGb: 0,
+          upstreamProvider: 'Amber IT'
+        },
+        {
+          id: 'u1',
+          fullName: 'Test Customer',
+          username: 'demo_user',
+          password: 'password123',
+          role: 'customer',
+          packageId: packages[0]?.id || '',
+          status: 'active',
+          expiryDate: '2026-04-30',
+          balance: 0,
+          dataUsedGb: 0,
+          dataLimitGb: 0,
+          upstreamProvider: 'Amber IT'
+        }
+      ];
+      setUsers(defaultUsers);
+    }
+  }, [users.length, packages]);
+
   const handleLogin = (username: string, password: string): boolean => {
     const foundUser = users.find(u => u.username === username && u.password === password);
     if (foundUser) {
