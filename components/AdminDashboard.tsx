@@ -182,33 +182,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // ... (আপনার আগের কোডের মতোই handleBulkQuickExtend থেকে handleUpdateAdminProfile পর্যন্ত)
 
   return (
-    <div className="space-y-6 relative pb-20">
-      {/* বাকি return অংশ একই — শুধু showImportModal-এর অংশটা ঠিক করেছি */}
-      {/* ... অন্যান্য কোড */}
-
-      {showImportModal && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-[200] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-lg p-8 animate-in zoom-in duration-300 shadow-2xl">
-            <h3 className="text-2xl font-black mb-6 text-slate-800">গুগল শীট থেকে ইমপোর্ট</h3>
-            <div className="bg-indigo-50 p-6 rounded-3xl mb-8 border border-indigo-100 text-xs text-indigo-900 leading-relaxed">
-              <p className="font-bold mb-2 uppercase tracking-widest">CSV ফরম্যাট গাইড:</p>
-              <p>
-                শীটে অবশ্যই <span className="font-bold">Name</span> এবং <span className="font-bold">Username</span> কলাম থাকতে হবে। গুগল শীট থেকে <span className="font-bold">File &gt; Download &gt; CSV</span> হিসেবে সেভ করে আপলোড করুন।
-              </p>
-            </div>
-            <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-slate-200 rounded-3xl cursor-pointer hover:bg-slate-50 transition-all">
-              <span className="text-4xl mb-3">📄</span>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">ফাইল আপলোড করুন (.csv)</p>
-              <input type="file" className="hidden" accept=".csv" onChange={handleCsvImport} />
-            </label>
-            <button onClick={() => setShowImportModal(false)} className="w-full mt-8 py-3 text-slate-400 font-bold uppercase tracking-widest text-[10px]">বন্ধ করুন</button>
-          </div>
-        </div>
-      )}
-
-      {/* বাকি মোডালগুলো আগের মতোই */}
+  <div className="p-8">
+    <h1 className="text-3xl font-bold mb-6 text-indigo-600">এডমিন ড্যাশবোর্ড</h1>
+    <p className="text-lg mb-4">স্বাগতম, {currentUser?.fullName || 'Admin'}!</p>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="bg-white p-6 rounded-2xl shadow border">
+        <p className="text-sm text-slate-500">মোট কাস্টমার</p>
+        <p className="text-3xl font-bold">{users.length}</p>
+      </div>
+      <div className="bg-white p-6 rounded-2xl shadow border">
+        <p className="text-sm text-slate-500">মোট প্যাকেজ</p>
+        <p className="text-3xl font-bold">{packages.length}</p>
+      </div>
+      <div className="bg-white p-6 rounded-2xl shadow border">
+        <p className="text-sm text-slate-500">মোট বিল</p>
+        <p className="text-3xl font-bold">{bills.length}</p>
+      </div>
     </div>
-  );
-};
-
-export default AdminDashboard;
+    <button onClick={() => alert('কাজ করছে!')} className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-bold">
+      টেস্ট বাটন — ক্লিক করুন
+    </button>
+    <p className="mt-8 text-sm text-slate-500">যদি এই পেজ দেখতে পান এবং বাটন কাজ করে, তাহলে এডমিন পোর্টাল ঠিক আছে। পরে আসল কোড ফিরিয়ে আনব।</p>
+  </div>
+);
