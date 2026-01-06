@@ -205,3 +205,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     <p className="mt-8 text-sm text-slate-500">যদি এই পেজ দেখতে পান এবং বাটন কাজ করে, তাহলে এডমিন পোর্টাল ঠিক আছে। পরে আসল কোড ফিরিয়ে আনব।</p>
   </div>
 );
+};
+
+export default AdminDashboard;
