@@ -16,7 +16,7 @@
     "clsx": "^2.0.0",
     "tailwind-merge": "^2.0.0",
     "@google/generative-ai": "^0.1.0",
-    "@supabase/supabase-js": "^2.39.0"
+    "@supabase/supabase-js": "^2.90.1",
   },
   "devDependencies": {
     "@types/react": "^18.2.0",
