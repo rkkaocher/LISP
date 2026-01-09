@@ -18,6 +18,8 @@ export default defineConfig({
       API_KEY: JSON.stringify(process.env.API_KEY || ''),
       SUPABASE_URL: JSON.stringify(process.env.SUPABASE_URL || ''),
       SUPABASE_ANON_KEY: JSON.stringify(process.env.SUPABASE_ANON_KEY || '')
-    }
+    },
+    'process.platform': JSON.stringify('browser'),
+    'process.version': JSON.stringify('v18.0.0')
   }
 });

@@ -1,9 +1,19 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Attempt to get keys from environment or local storage
+// Attempt to get keys from environment or local storage safely
 const getInitialConfig = () => {
-  const envUrl = process.env.SUPABASE_URL || '';
-  const envKey = process.env.SUPABASE_ANON_KEY || '';
+  let envUrl = '';
+  let envKey = '';
+  
+  try {
+    // Check for process and process.env to prevent crashes
+    if (typeof process !== 'undefined' && process.env) {
+      envUrl = process.env.SUPABASE_URL || '';
+      envKey = process.env.SUPABASE_ANON_KEY || '';
+    }
+  } catch (e) {
+    console.warn("Environment variables not accessible directly:", e);
+  }
   
   const savedUrl = localStorage.getItem('NX_SUPABASE_URL');
   const savedKey = localStorage.getItem('NX_SUPABASE_KEY');
@@ -26,7 +36,7 @@ let clientInstance: SupabaseClient | null = null;
 export const getSupabaseClient = (): SupabaseClient => {
   if (clientInstance) return clientInstance;
   
-  // Initialize with what we have
+  // Initialize with what we have or placeholders to prevent crash
   clientInstance = createClient(
     config.url || 'https://placeholder.supabase.co',
     config.key || 'placeholder-key'
@@ -48,11 +58,10 @@ export const initializeSupabase = (url: string, key: string) => {
     clientInstance = newClient;
     config = { url, key };
     
-    // Persist for convenience during development if not in environment
-    if (!process.env.SUPABASE_URL) {
-      localStorage.setItem('NX_SUPABASE_URL', url);
-      localStorage.setItem('NX_SUPABASE_KEY', key);
-    }
+    // Persist for convenience if not in environment
+    localStorage.setItem('NX_SUPABASE_URL', url);
+    localStorage.setItem('NX_SUPABASE_KEY', key);
+    
     return true;
   } catch (e) {
     console.error("Failed to initialize Supabase:", e);
