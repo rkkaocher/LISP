@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User, Package, BillingRecord } from '../types';
 import { getSupportAdvice } from '../services/geminiService';
-import { supabase } from '../supabaseClient'; // আপনার ফাইলের লোকেশন অনুযায়ী পাথ ঠিক করে নিন
+import { supabase } from '../lib/supabaseClient'; // আপনার ফাইলের লোকেশন অনুযায়ী পাথ ঠিক করে নিন
 
 interface Message {
   id: string;
