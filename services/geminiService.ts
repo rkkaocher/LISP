@@ -2,7 +2,9 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const getAI = () => {
   const apiKey = (typeof process !== 'undefined' && process.env?.API_KEY) || "";
-  return new GoogleGenerativeAI({ apiKey });
+  // ভুল ছিল: return new GoogleGenAI({ apiKey });
+// সঠিক হবে নিচেরটি:
+return new GoogleGenerativeAI(apiKey);
 };
 
 export async function getPlanRecommendation(userProfile: string) {
