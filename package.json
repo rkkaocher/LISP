@@ -1,16 +1,18 @@
+
 {
   "name": "nexusconnect-isp-portal",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "remix vite:build",
+    "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "@google/genai": "^1.34.0"
+    "@google/genai": "^1.34.0",
+    "@supabase/supabase-js": "^2.45.1"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
