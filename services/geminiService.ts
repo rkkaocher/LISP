@@ -1,8 +1,8 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const getAI = () => {
   const apiKey = (typeof process !== 'undefined' && process.env?.API_KEY) || "";
-  return new GoogleGenAI({ apiKey });
+  return new GoogleGenerativeAI({ apiKey });
 };
 
 export async function getPlanRecommendation(userProfile: string) {
