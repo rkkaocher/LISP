@@ -1,21 +1,28 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { supabase } from '@/lib/supabaseClient';
+import { useRouter } from 'next/router'; // এটা যোগ করো (Next.js App Router না হলে next/navigation থেকে useRouter)
 
-interface LoginProps {
-  onLogin: (u: string, p: string) => boolean;
-}
-
-const Login: React.FC<LoginProps> = ({ onLogin }) => {
+const Login: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const router = useRouter();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const success = onLogin(username, password);
-    if (!success) {
-      setError('ইউজার আইডি অথবা পাসওয়ার্ড সঠিক নয়। আবার চেষ্টা করুন।');
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: username, // যদি Username কলামে ইমেইল থাকে। যদি ফোন হয় তাহলে phone: username
+      password: password,
+    });
+
+    if (error) {
+      setError('ইউজার আইডি অথবা পাসওয়ার্ড সঠিক নয়। ' + error.message);
+    } else {
+      // লগইন সাকসেস – ড্যাশবোর্ডে যাও
+      router.push('/customer-dashboard');
     }
   };
 
@@ -30,7 +37,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           <p className="text-slate-500 text-sm font-medium">আপনার হাই-স্পিড ইন্টারনেট পোর্টালে স্বাগতম</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-[3rem] p-10 shadow-2xl relative overflow-hidden">
+        <form onSubmit={handleSubmit}>
           <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 to-violet-500"></div>
           
           {error && (
@@ -72,7 +79,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-300 hover:text-indigo-600 transition-colors focus:outline-none"
                 >
-                  {showPassword ? '🙈' : '👁️'}
+                  {showPassword ? '😣' : '👁️'}
                 </button>
               </div>
             </div>
