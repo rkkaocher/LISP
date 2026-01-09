@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { User, Package, BillingRecord } from '../types';
 import { getSupportAdvice } from '../services/geminiService';
-import { supabase } from '@/lib/supabaseClient'; // আপনার ফাইলের লোকেশন অনুযায়ী পাথ ঠিক করে নিন
 
 interface Message {
   id: string;
@@ -15,12 +14,7 @@ interface CustomerDashboardProps {
   bills: BillingRecord[];
 }
 
-const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user: initialUser, packages, bills: initialBills }) => {
-  // --- ছোট কোডটি এখানে বসানো হয়েছে (State & Fetching) ---
-  const [customerData, setCustomerData] = useState<any>(initialUser);
-  const [payments, setPayments] = useState<any[]>(initialBills);
-  const [loading, setLoading] = useState(true);
-
+const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, packages, bills }) => {
   const [showAiChat, setShowAiChat] = useState(false);
   const [aiMessage, setAiMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<Message[]>([]);
@@ -28,52 +22,27 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user: initialUser
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        if (authUser) {
-          // Customers টেবিল থেকে ডাটা আনা
-          const { data: customer } = await supabase
-            .from('Customers')
-            .select('*')
-            .eq('id', authUser.id)
-            .single();
-
-          // Payments টেবিল থেকে ডাটা আনা
-          const { data: paymentData } = await supabase
-            .from('Payments')
-            .select('*')
-            .eq('customer_id', authUser.id)
-            .order('payment_date', { ascending: false });
-
-          if (customer) setCustomerData(customer);
-          if (paymentData) setPayments(paymentData || []);
-        }
-      } catch (error) {
-        console.error("Error loading data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-  // --- ছোট কোড শেষ ---
-
-  useEffect(() => {
     if (chatEndRef.current) {
       chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [chatHistory, isLoading]);
 
-  if (loading) return <div className="text-center py-20 text-indigo-600 font-bold">লোড হচ্ছে...</div>;
-  if (!customerData) return <div className="text-center py-20 text-red-500 font-bold">লগইন করুন অথবা ডাটা খুঁজে পাওয়া যায়নি</div>;
+  const currentPackage = useMemo(() => 
+    packages.find(p => p.id === user.packageId),
+    [packages, user.packageId]
+  );
 
-  // স্ট্যাটাস এবং প্যাকেজ ক্যালকুলেশন
-  const expiryDateObj = new Date(customerData.Expiry_date || new Date());
-  const isExpired = expiryDateObj < new Date();
-  const statusText = isExpired ? 'মেয়াদ উত্তীর্ণ (Expired)' : 'সচল (Active)';
-  const statusColorClass = isExpired ? 'bg-red-400/20 text-red-300 border-red-400/30' : 'bg-green-400/20 text-green-300 border-green-400/30';
+  const daysRemaining = useMemo(() => {
+    if (!user.expiryDate) return 0;
+    const expiry = new Date(user.expiryDate);
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const diffTime = expiry.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? diffDays : 0;
+  }, [user.expiryDate]);
+
+  const isExpired = daysRemaining === 0 || user.status !== 'active';
 
   const handleAiAsk = async () => {
     if (!aiMessage.trim() || isLoading) return;
@@ -82,77 +51,144 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user: initialUser
     setChatHistory(prev => [...prev, { id: Date.now().toString(), role: 'user', text: userMsg }]);
     setIsLoading(true);
     const advice = await getSupportAdvice(userMsg, chatHistory.map(m => ({ role: m.role, text: m.text })));
-    setChatHistory(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'model', text: advice || 'দুঃখিত সাহায্য করতে পারছি না।' }]);
+    setChatHistory(prev => [...prev, { id: (Date.now()+1).toString(), role: 'model', text: advice }]);
     setIsLoading(false);
   };
 
+  const getMethodBadge = (method: BillingRecord['method']) => {
+    switch(method) {
+      case 'bKash': return 'bg-[#D12053] text-white';
+      case 'Nagad': return 'bg-[#F7941D] text-white';
+      case 'Cash': return 'bg-emerald-600 text-white';
+      default: return 'bg-slate-200 text-slate-600';
+    }
+  };
+
   return (
-    <div className="relative min-h-[calc(100vh-200px)]">
-      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        {/* ব্যানার সেকশন */}
-        <div className="bg-indigo-600 rounded-[2.5rem] p-8 text-white shadow-2xl flex flex-col md:flex-row justify-between items-center gap-6 relative overflow-hidden">
-          <div className="relative z-10 text-center md:text-left">
-            <span className="text-[10px] font-extrabold opacity-70 uppercase tracking-[0.2em] mb-2 block">ইন্টারনেট কানেকশন</span>
-            <h2 className="text-3xl md:text-4xl font-extrabold">{customerData.Package}</h2>
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mt-4">
-              <span className={`px-3 py-1 rounded-full text-[10px] font-bold border ${statusColorClass}`}>● {statusText}</span>
-              <span className="bg-white/10 border border-white/10 px-3 py-1 rounded-full text-[10px] font-medium">আইপি: 103.145.22.12</span>
+    <div className="max-w-4xl mx-auto space-y-8 pb-12 animate-in fade-in duration-700">
+      {/* Hero Section */}
+      <section className="relative overflow-hidden gradient-card rounded-[3rem] p-8 md:p-12 text-white shadow-2xl shadow-indigo-200">
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
+          <div className="space-y-4 text-center md:text-left">
+            <div className="flex items-center justify-center md:justify-start gap-3">
+              <span className={`status-dot ${isExpired ? 'bg-rose-500' : 'bg-emerald-400 animate-pulse'}`}></span>
+              <span className="text-xs font-black uppercase tracking-widest opacity-80">
+                {!isExpired ? 'কানেকশন সচল আছে' : 'কানেকশন বন্ধ'}
+              </span>
             </div>
+            <h1 className="text-4xl md:text-6xl font-black tracking-tight leading-tight">
+              {currentPackage?.speed || 0} <span className="text-xl md:text-2xl font-bold opacity-70">Mbps</span>
+            </h1>
+            <p className="text-lg font-medium opacity-90">
+              প্যাকেজ: <span className="font-bold">{currentPackage?.name || 'লোডিং...'}</span>
+            </p>
           </div>
-          <div className="relative z-10 grid grid-cols-2 gap-3 w-full md:w-auto">
-            <div className="text-center bg-white/10 px-6 py-4 rounded-3xl border border-white/10">
-              <p className="text-[9px] font-bold uppercase opacity-60 mb-1">মেয়াদ শেষ</p>
-              <p className="text-xl font-black">{new Date(customerData.Expiry_date).toLocaleDateString('bn-BD')}</p>
-            </div>
-            <div className="text-center bg-white/10 px-6 py-4 rounded-3xl border border-white/10">
-              <p className="text-[9px] font-bold uppercase opacity-60 mb-1">মাসিক বিল</p>
-              <p className="text-xl font-black">৳{customerData.Monthly_bill}</p>
+
+          <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-8 rounded-[2.5rem] text-center min-w-[200px]">
+            <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">মেয়াদ বাকি আছে</p>
+            <div className="text-5xl font-black mb-1">{daysRemaining}</div>
+            <p className="text-sm font-bold opacity-80">দিন</p>
+            <div className="mt-4 w-full bg-white/20 h-1.5 rounded-full overflow-hidden">
+               <div className="bg-white h-full transition-all duration-1000" style={{ width: `${Math.min(100, (daysRemaining/30)*100)}%` }}></div>
             </div>
           </div>
         </div>
+      </section>
 
-        {/* বিলিং রেকর্ড সেকশন */}
-        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
-          <h4 className="font-bold text-slate-800 flex items-center gap-2 mb-8">💳 বিলিং রেকর্ড</h4>
-          <div className="space-y-4">
-            {payments.map((p) => (
-              <div key={p.id} className="flex items-center justify-between p-5 bg-slate-50 border border-slate-100 rounded-[1.5rem]">
-                <div>
-                  <p className="text-sm font-bold text-slate-800">{p.month || 'ইন্টারনেট বিল'}</p>
-                  <p className="text-[9px] text-slate-400">{new Date(p.payment_date).toLocaleDateString('bn-BD')}</p>
+      {/* Info Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          { label: 'আইপি অ্যাড্রেস', val: '103.145.22.12', icon: '🌐', color: 'bg-blue-50 text-blue-600' },
+          { label: 'ডাটা লিমিট', val: 'আনলিমিটেড', icon: '♾️', color: 'bg-emerald-50 text-emerald-600' },
+          { label: 'মাসিক বিল', val: `৳${currentPackage?.price || 0}`, icon: '💰', color: 'bg-indigo-50 text-indigo-600' },
+          { label: 'মেয়াদ শেষ হবে', val: user.expiryDate || '-', icon: '📅', color: 'bg-amber-50 text-amber-600' }
+        ].map((s, idx) => (
+          <div key={idx} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col items-center text-center">
+            <div className={`w-12 h-12 ${s.color} rounded-2xl flex items-center justify-center text-xl mb-3 shadow-sm`}>{s.icon}</div>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">{s.label}</p>
+            <p className="text-sm font-black text-slate-800 tracking-tight">{s.val}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="lg:col-span-7 space-y-6">
+          <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm">
+            <h4 className="font-black text-slate-800 flex items-center gap-3 mb-8">
+              <span className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center">📄</span>
+              বিলিং হিস্ট্রি
+            </h4>
+            <div className="space-y-4">
+              {bills.length > 0 ? bills.map(bill => (
+                <div key={bill.id} className={`flex items-center justify-between p-6 rounded-[2rem] border ${bill.status === 'pending' ? 'bg-rose-50 border-rose-100' : 'bg-slate-50 border-slate-100'}`}>
+                  <div className="flex items-center gap-5">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm shadow-sm ${getMethodBadge(bill.method)}`}>
+                      {bill.method === 'None' ? '!' : bill.method[0]}
+                    </div>
+                    <div>
+                      <p className="text-base font-black text-slate-800">{bill.billingMonth}</p>
+                      <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase border mt-1 inline-block ${bill.status === 'paid' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-100 text-rose-600 border-rose-200'}`}>
+                        {bill.status === 'paid' ? 'পরিশোধিত' : 'বাকি আছে'}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-xl font-black">৳{bill.amount}</p>
                 </div>
-                <p className="font-bold text-indigo-600">৳{p.amount}</p>
-              </div>
-            ))}
-            {payments.length === 0 && <p className="text-center text-slate-400">কোনো পেমেন্ট রেকর্ড পাওয়া যায়নি।</p>}
+              )) : (
+                <p className="text-center py-10 text-slate-400 font-bold">কোনো বিল পাওয়া যায়নি।</p>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* AI সাপোর্ট চ্যাট সেকশন (আপনার ডিজাইন অনুযায়ী বাকি অংশ...) */}
+        <div className="lg:col-span-5 space-y-6">
+          <div className="bg-[#0F172A] rounded-[3rem] p-8 text-white shadow-xl">
+            <h4 className="text-xs font-black mb-8 opacity-60 uppercase tracking-[0.3em]">সাপোর্ট ও হটলাইন</h4>
+            <div className="space-y-4">
+              <a href="tel:01827166214" className="flex items-center gap-5 p-5 bg-white/5 rounded-[2rem] border border-white/5 hover:bg-white/10 transition-all">
+                <span className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center text-xl">📞</span>
+                <div>
+                  <p className="text-[10px] font-black text-indigo-300 uppercase mb-1">হটলাইন</p>
+                  <p className="text-lg font-black">০১৮২৭-১৬৬২১৪</p>
+                </div>
+              </a>
+            </div>
+          </div>
+
+          <button onClick={() => setShowAiChat(true)} className="w-full bg-indigo-600 p-6 rounded-[2.5rem] shadow-lg shadow-indigo-100 text-white flex items-center justify-center gap-4 hover:scale-[1.02] transition-all">
+             <span className="text-2xl">🤖</span>
+             <span className="font-bold">AI অ্যাসিস্ট্যান্টের সাহায্য নিন</span>
+          </button>
+        </div>
       </div>
 
-      {/* Floating AI Support Button */}
-      <div className="fixed bottom-6 right-6 z-[80]">
-        <button onClick={() => setShowAiChat(!showAiChat)} className="w-16 h-16 rounded-full flex items-center justify-center text-3xl shadow-2xl bg-indigo-600 text-white">
-          {showAiChat ? '✕' : '🤖'}
-        </button>
-      </div>
-      
-      {/* AI চ্যাট উইন্ডো কোড এখানে থাকবে */}
+      {/* AI Chat Modal */}
       {showAiChat && (
-        <div className="fixed bottom-24 right-6 w-[350px] bg-white h-[500px] rounded-[2rem] shadow-2xl border border-slate-200 z-[100] flex flex-col overflow-hidden">
-           <div className="bg-indigo-600 p-4 text-white font-bold">AI সাপোর্ট</div>
-           <div className="flex-grow p-4 overflow-y-auto space-y-3">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white w-full max-w-lg h-[80vh] rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10">
+            <div className="bg-indigo-600 p-8 flex justify-between items-center text-white">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-xl">🤖</div>
+                <h3 className="font-black text-lg">NexusConnect AI</h3>
+              </div>
+              <button onClick={() => setShowAiChat(false)} className="text-2xl">✕</button>
+            </div>
+            <div className="flex-grow p-6 overflow-y-auto bg-slate-50 space-y-4">
               {chatHistory.map(m => (
-                <div key={m.id} className={`${m.role === 'user' ? 'text-right' : 'text-left'}`}>
-                  <span className={`inline-block p-3 rounded-2xl text-[11px] ${m.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-slate-100'}`}>{m.text}</span>
+                <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] p-4 rounded-2xl text-sm font-bold shadow-sm ${m.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700'}`}>
+                    {m.text}
+                  </div>
                 </div>
               ))}
-           </div>
-           <div className="p-4 border-t flex gap-2">
-              <input value={aiMessage} onChange={(e)=>setAiMessage(e.target.value)} className="flex-grow bg-slate-100 rounded-xl px-4 text-xs outline-none" placeholder="সমস্যাটি লিখুন..." />
-              <button onClick={handleAiAsk} className="bg-indigo-600 p-2 rounded-xl text-white">🚀</button>
-           </div>
+              {isLoading && <p className="text-[10px] font-black text-slate-400">AI টাইপ করছে...</p>}
+              <div ref={chatEndRef} />
+            </div>
+            <div className="p-6 bg-white border-t flex gap-3">
+              <input type="text" className="flex-grow px-5 py-3 rounded-2xl bg-slate-50 outline-none" placeholder="আপনার সমস্যাটি লিখুন..." value={aiMessage} onChange={e => setAiMessage(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleAiAsk()} />
+              <button onClick={handleAiAsk} className="w-12 h-12 bg-indigo-600 text-white rounded-xl">🚀</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

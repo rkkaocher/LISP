@@ -15,7 +15,9 @@ export default defineConfig({
   },
   define: {
     'process.env': {
-      API_KEY: JSON.stringify(process.env.API_KEY || '')
+      API_KEY: JSON.stringify(process.env.API_KEY || ''),
+      SUPABASE_URL: JSON.stringify(process.env.SUPABASE_URL || ''),
+      SUPABASE_ANON_KEY: JSON.stringify(process.env.SUPABASE_ANON_KEY || '')
     }
   }
 });

@@ -1,21 +1,26 @@
 import React, { useState } from 'react';
+import { supabase } from '../services/supabaseClient';
 
-interface LoginProps {
-  onLogin: (u: string, p: string) => boolean;
-}
-
-const Login: React.FC<LoginProps> = ({ onLogin }) => {
-  const [username, setUsername] = useState('');
+const Login: React.FC = () => {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const success = onLogin(username, password);
-    if (!success) {
-      setError('ইউজার আইডি অথবা পাসওয়ার্ড সঠিক নয়। আবার চেষ্টা করুন।');
+    setIsLoading(true);
+
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (authError) {
+      setError('ইমেইল অথবা পাসওয়ার্ড সঠিক নয়। অথবা একাউন্টটি সক্রিয় নেই।');
+      setIsLoading(false);
     }
   };
 
@@ -27,7 +32,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             N
           </div>
           <h1 className="text-4xl font-black text-white tracking-tight mb-2">NexusConnect</h1>
-          <p className="text-slate-500 text-sm font-medium">আপনার হাই-স্পিড ইন্টারনেট পোর্টালে স্বাগতম</p>
+          <p className="text-slate-500 text-sm font-medium">আপনার প্রোডাকশন পোর্টালে স্বাগতম</p>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-white rounded-[3rem] p-10 shadow-2xl relative overflow-hidden">
@@ -41,16 +46,16 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
           <div className="space-y-8">
             <div className="group">
-              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3 ml-1">ইউজার আইডি</label>
+              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3 ml-1">ইমেইল অ্যাড্রেস</label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300">👤</span>
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300">📧</span>
                 <input
-                  type="text"
+                  type="email"
                   required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-3xl focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 transition-all font-medium text-slate-700"
-                  placeholder="আপনার কাস্টমার আইডি দিন"
+                  placeholder="আপনার ইমেইল দিন"
                 />
               </div>
             </div>
@@ -79,16 +84,17 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
             <button
               type="submit"
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-5 rounded-[2rem] shadow-xl shadow-indigo-500/30 transition-all transform active:scale-[0.98] mt-4 tracking-tight"
+              disabled={isLoading}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-5 rounded-[2rem] shadow-xl shadow-indigo-500/30 transition-all transform active:scale-[0.98] mt-4 tracking-tight disabled:opacity-50"
             >
-              লগইন করুন
+              {isLoading ? 'লগইন হচ্ছে...' : 'লগইন করুন'}
             </button>
           </div>
         </form>
 
         <p className="text-center mt-10 text-slate-600 text-[11px] font-bold uppercase tracking-widest">
-          কোনো সমস্যা হচ্ছে? <br />
-          <span className="text-indigo-400 cursor-pointer hover:underline underline-offset-4">আমাদের সাপোর্ট টিমের সাথে যোগাযোগ করুন</span>
+          NexusConnect Cloud Security <br />
+          <span className="text-indigo-400 cursor-pointer hover:underline underline-offset-4">পাসওয়ার্ড ভুলে গেছেন?</span>
         </p>
       </div>
     </div>

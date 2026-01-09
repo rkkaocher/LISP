@@ -18,44 +18,57 @@
           font-family: 'Plus Jakarta Sans', sans-serif; 
           overflow-x: hidden;
           -webkit-tap-highlight-color: transparent;
+          background-color: #F8FAFC;
         }
         .glass {
-          background: rgba(255, 255, 255, 0.7);
-          backdrop-filter: blur(10px);
-          -webkit-backdrop-filter: blur(10px);
+          background: rgba(255, 255, 255, 0.8);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(255, 255, 255, 0.3);
         }
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-        
-        button:active { transform: scale(0.97); }
-        .gradient-bg { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); }
-        
-        @keyframes bounce-subtle {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-5px); }
+        .gradient-card {
+          background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
         }
-        .animate-bounce-subtle {
-          animation: bounce-subtle 2s infinite ease-in-out;
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        
+        @keyframes pulse-soft {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.8; transform: scale(0.98); }
+        }
+        .animate-pulse-soft {
+          animation: pulse-soft 3s infinite ease-in-out;
+        }
+
+        .status-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          display: inline-block;
+          margin-right: 6px;
+          box-shadow: 0 0 10px currentColor;
         }
     </style>
 <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react": "https://esm.sh/react@19.0.0",
+    "react-dom": "https://esm.sh/react-dom@19.0.0",
+    "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
+    "@google/genai": "https://esm.sh/@google/genai@1.34.0",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.45.1",
     "react/": "https://esm.sh/react@^19.2.3/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
-    "vite": "https://esm.sh/vite@^7.3.0",
+    "vite": "https://esm.sh/vite@^7.3.1",
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "url": "https://esm.sh/url@^0.11.4",
-    "path": "https://esm.sh/path@^0.12.7"
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "path": "https://esm.sh/path@^0.12.7",
+    "url": "https://esm.sh/url@^0.11.4"
   }
 }
 </script>
 </head>
-<body class="bg-[#F8FAFC] text-slate-900 min-h-screen">
+<body>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
 </body>
