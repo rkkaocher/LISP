@@ -215,7 +215,7 @@ const App: React.FC = () => {
           <div className="space-y-2">
             {diagnostics.map((log, i) => (
               <p key={i} className="text-[10px] text-slate-400 font-medium">
-                <span className="text-indigo-500 mr-2">></span> {log}
+                <span className="text-indigo-500 mr-2">&gt;</span> {log}
               </p>
             ))}
           </div>
