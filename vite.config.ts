@@ -14,12 +14,16 @@ export default defineConfig({
     },
   },
   define: {
-    'process.env': {
-      API_KEY: JSON.stringify(process.env.API_KEY || ''),
-      SUPABASE_URL: JSON.stringify(process.env.SUPABASE_URL || ''),
-      SUPABASE_ANON_KEY: JSON.stringify(process.env.SUPABASE_ANON_KEY || '')
-    },
+    // Hardcoding the provided credentials for the user as requested
+    'process.env.API_KEY': JSON.stringify(process.env.API_KEY || ''),
+    'process.env.SUPABASE_URL': JSON.stringify('https://dlvyazxvxvppfrqdugrs.supabase.co'),
+    'process.env.SUPABASE_ANON_KEY': JSON.stringify('sb_publishable_-IlAKT0C4SeNYiPebZL7mQ_6bvzEIMv'),
     'process.platform': JSON.stringify('browser'),
-    'process.version': JSON.stringify('v18.0.0')
+    'process.version': JSON.stringify('v18.0.0'),
+    'process.env': JSON.stringify({
+      API_KEY: process.env.API_KEY || '',
+      SUPABASE_URL: 'https://dlvyazxvxvppfrqdugrs.supabase.co',
+      SUPABASE_ANON_KEY: 'sb_publishable_-IlAKT0C4SeNYiPebZL7mQ_6bvzEIMv'
+    })
   }
 });

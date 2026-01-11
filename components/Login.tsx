@@ -1,138 +1,145 @@
 import React, { useState } from 'react';
 import { supabase } from '../services/supabaseClient';
 
-const Login: React.FC = () => {
+const Auth: React.FC = () => {
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccessMsg('');
     setIsLoading(true);
 
     try {
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
+      if (isSignUp) {
+        const { data: authData, error: signUpError } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+        });
 
-      if (authError) {
-        setError('ইমেইল অথবা পাসওয়ার্ড সঠিক নয়। অথবা একাউন্টটি সক্রিয় নেই।');
+        if (signUpError) throw signUpError;
+
+        if (authData.user) {
+          // Note: Removed 'email' column from insert as it doesn't exist in user's DB schema
+          const { error: profileError } = await supabase
+            .from('Customers')
+            .insert([
+              {
+                id: authData.user.id,
+                User_id: email.split('@')[0], 
+                Name: fullName,              
+                Phone_number: phone,         
+                Address: address,            
+                Role: 'Customer',            
+                Package: '10 Mbps', 
+                Expiry_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                Due_amount: 0                
+              }
+            ]);
+
+          if (profileError) {
+            console.error("Profile creation error:", profileError.message);
+            throw new Error('ডেটাবেস টেবিল আপডেট প্রয়োজন। এডমিনকে জানান।');
+          }
+          setSuccessMsg('রেজিস্ট্রেশন সফল! লগইন করুন।');
+          setIsSignUp(false);
+        }
+      } else {
+        const { error: loginError } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+
+        if (loginError) {
+          if (loginError.message.includes('Invalid login credentials')) {
+            throw new Error('ইমেইল অথবা পাসওয়ার্ডটি সঠিক নয়।');
+          }
+          throw loginError;
+        }
       }
-    } catch (err) {
-      setError('সার্ভারে সমস্যা হচ্ছে। পরে চেষ্টা করুন।');
+    } catch (err: any) {
+      setError(err.message || 'একটি সমস্যা হয়েছে।');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0F172A] p-6 selection:bg-indigo-500/30">
-      {/* Background Glows for Depth */}
-      <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[120px] rounded-full"></div>
-      <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[120px] rounded-full"></div>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#0F172A] p-6 selection:bg-indigo-500/30 overflow-x-hidden">
+      <div className="fixed top-[-10%] left-[-10%] w-[60%] h-[60%] bg-indigo-600/10 blur-[120px] rounded-full"></div>
+      <div className="fixed bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-violet-600/10 blur-[120px] rounded-full"></div>
 
-      <div className="w-full max-w-[460px] relative z-10 animate-in fade-in zoom-in-95 duration-700">
-        {/* Header Logo & Title */}
-        <div className="text-center mb-12">
-          <div className="w-20 h-20 bg-indigo-600 rounded-[2.2rem] mx-auto flex items-center justify-center text-white text-4xl font-black shadow-[0_20px_50px_rgba(79,70,229,0.3)] mb-8 transform hover:rotate-6 transition-transform cursor-default">
-            N
-          </div>
-          <h1 className="text-4xl font-black text-white tracking-tight mb-3">NexusConnect</h1>
-          <p className="text-slate-400 text-sm font-medium">আপনার প্রোডাকশন পোর্টালে স্বাগতম</p>
+      <div className="w-full max-w-[480px] relative z-10">
+        <div className="text-center mb-10">
+          <div className="w-20 h-20 bg-indigo-600 rounded-[2rem] mx-auto flex items-center justify-center text-white text-4xl font-black shadow-2xl shadow-indigo-500/40 mb-6 transform hover:rotate-6 transition-all duration-500">N</div>
+          <h1 className="text-4xl font-black text-white tracking-tight mb-2">NexusConnect</h1>
+          <p className="text-slate-400 text-sm font-medium">{isSignUp ? 'রেজিস্ট্রেশন করুন' : 'লগইন করুন'}</p>
         </div>
 
-        {/* Login Card */}
-        <div className="bg-white rounded-[3rem] shadow-[0_30px_100px_rgba(0,0,0,0.2)] relative overflow-hidden">
-          {/* Top Gradient Bar */}
-          <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-500"></div>
+        <div className="bg-white rounded-[2.5rem] shadow-[0_40px_100px_rgba(0,0,0,0.4)] relative overflow-hidden transition-all duration-500">
+          <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-500"></div>
           
-          <form onSubmit={handleSubmit} className="p-10 md:p-12">
-            {error && (
-              <div className="mb-8 p-4 bg-rose-50 border border-rose-100 text-rose-600 text-[11px] font-bold rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
-                <span className="text-lg">⚠️</span> {error}
-              </div>
-            )}
+          <form onSubmit={handleSubmit} className="p-8 md:p-10 space-y-5">
+            {error && <div className="p-4 bg-rose-50 border border-rose-100 text-rose-600 text-[11px] font-bold rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2"><span>⚠️</span> {error}</div>}
+            {successMsg && <div className="p-4 bg-emerald-50 border border-emerald-100 text-emerald-600 text-[11px] font-bold rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2"><span>✅</span> {successMsg}</div>}
 
-            <div className="space-y-8">
-              {/* Email Input */}
-              <div className="relative group">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-3 ml-1 transition-colors group-focus-within:text-indigo-500">
-                  ইমেইল অ্যাড্রেস
-                </label>
+            <div className="space-y-4">
+              {isSignUp && (
+                <>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">পূর্ণ নাম</label>
+                    <input type="text" required value={fullName} onChange={e => setFullName(e.target.value)} className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 outline-none transition-all font-semibold text-slate-900" placeholder="আপনার নাম" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">ফোন</label>
+                      <input type="tel" required value={phone} onChange={e => setPhone(e.target.value)} className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 outline-none text-slate-900" placeholder="০১৮.." />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">ঠিকানা</label>
+                      <input type="text" required value={address} onChange={e => setAddress(e.target.value)} className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 outline-none text-slate-900" placeholder="রংপুর" />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">ইমেইল</label>
+                <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 outline-none text-slate-900" placeholder="name@email.com" />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">পাসওয়ার্ড</label>
                 <div className="relative">
-                  <span className="absolute left-5 top-1/2 -translate-y-1/2 text-xl opacity-40 group-focus-within:opacity-100 transition-opacity">📧</span>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-14 pr-6 py-5 bg-slate-50 border border-slate-100 rounded-[1.8rem] focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 transition-all font-medium text-slate-700 placeholder:text-slate-300"
-                    placeholder="আপনার ইমেইল দিন"
-                  />
+                  <input type={showPassword ? "text" : "password"} required value={password} onChange={e => setPassword(e.target.value)} className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 outline-none text-slate-900" placeholder="••••••••" />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">{showPassword ? '🙈' : '👁️'}</button>
                 </div>
               </div>
-
-              {/* Password Input */}
-              <div className="relative group">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-3 ml-1 transition-colors group-focus-within:text-indigo-500">
-                  পাসওয়ার্ড
-                </label>
-                <div className="relative">
-                  <span className="absolute left-5 top-1/2 -translate-y-1/2 text-xl opacity-40 group-focus-within:opacity-100 transition-opacity">🔑</span>
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-14 pr-16 py-5 bg-slate-50 border border-slate-100 rounded-[1.8rem] focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 transition-all font-medium text-slate-700 placeholder:text-slate-300"
-                    placeholder="••••••••"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-5 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center text-slate-300 hover:text-indigo-600 transition-colors focus:outline-none"
-                    aria-label={showPassword ? "পাসওয়ার্ড লুকান" : "পাসওয়ার্ড দেখুন"}
-                  >
-                    {showPassword ? '🙈' : '👁️'}
-                  </button>
-                </div>
-              </div>
-
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-6 rounded-[2rem] shadow-[0_15px_30px_rgba(79,70,229,0.3)] hover:shadow-[0_15px_40px_rgba(79,70,229,0.4)] transition-all transform active:scale-[0.98] mt-4 tracking-tight disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-3"
-              >
-                {isLoading ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    <span>চেকিং...</span>
-                  </>
-                ) : (
-                  'লগইন করুন'
-                )}
-              </button>
             </div>
-          </form>
-        </div>
 
-        {/* Footer Links */}
-        <div className="text-center mt-12 space-y-4">
-          <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em] mb-2">
-            NexusConnect Cloud Security
-          </p>
-          <button className="text-indigo-400 text-xs font-bold hover:text-indigo-300 hover:underline underline-offset-8 decoration-indigo-400/30 transition-all">
-            পাসওয়ার্ড ভুলে গেছেন?
-          </button>
+            <button type="submit" disabled={isLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-5 rounded-2xl shadow-xl shadow-indigo-500/20 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-3">
+              {isLoading && <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>}
+              <span>{isSignUp ? 'রেজিস্ট্রেশন করুন' : 'লগইন করুন'}</span>
+            </button>
+
+            <button type="button" onClick={() => setIsSignUp(!isSignUp)} className="w-full text-center text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors">
+              {isSignUp ? 'ইতিমধ্যে অ্যাকাউন্ট আছে? লগইন করুন' : 'অ্যাকাউন্ট নেই? নতুন অ্যাকাউন্ট তৈরি করুন'}
+            </button>
+          </form>
         </div>
       </div>
     </div>
   );
 };
 
-export default Login;
+export default Auth;

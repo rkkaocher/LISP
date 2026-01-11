@@ -55,13 +55,10 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, packages, b
     setIsLoading(false);
   };
 
-  const getMethodBadge = (method: BillingRecord['method']) => {
-    switch(method) {
-      case 'bKash': return 'bg-[#D12053] text-white';
-      case 'Nagad': return 'bg-[#F7941D] text-white';
-      case 'Cash': return 'bg-emerald-600 text-white';
-      default: return 'bg-slate-200 text-slate-600';
-    }
+  const getMethodBadge = (method: string) => {
+    if (method.includes('বিকাশ')) return 'bg-[#D12053] text-white';
+    if (method.includes('নগদ')) return 'bg-[#F7941D] text-white';
+    return 'bg-emerald-600 text-white';
   };
 
   return (
@@ -71,7 +68,7 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, packages, b
         <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="space-y-4 text-center md:text-left">
             <div className="flex items-center justify-center md:justify-start gap-3">
-              <span className={`status-dot ${isExpired ? 'bg-rose-500' : 'bg-emerald-400 animate-pulse'}`}></span>
+              <span className={`w-2 h-2 rounded-full ${isExpired ? 'bg-rose-500' : 'bg-emerald-400 animate-pulse'}`}></span>
               <span className="text-xs font-black uppercase tracking-widest opacity-80">
                 {!isExpired ? 'কানেকশন সচল আছে' : 'কানেকশন বন্ধ'}
               </span>
@@ -80,7 +77,7 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, packages, b
               {currentPackage?.speed || 0} <span className="text-xl md:text-2xl font-bold opacity-70">Mbps</span>
             </h1>
             <p className="text-lg font-medium opacity-90">
-              প্যাকেজ: <span className="font-bold">{currentPackage?.name || 'লোডিং...'}</span>
+              প্যাকেজ: <span className="font-bold">{user.packageId}</span>
             </p>
           </div>
 
@@ -88,9 +85,6 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, packages, b
             <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">মেয়াদ বাকি আছে</p>
             <div className="text-5xl font-black mb-1">{daysRemaining}</div>
             <p className="text-sm font-bold opacity-80">দিন</p>
-            <div className="mt-4 w-full bg-white/20 h-1.5 rounded-full overflow-hidden">
-               <div className="bg-white h-full transition-all duration-1000" style={{ width: `${Math.min(100, (daysRemaining/30)*100)}%` }}></div>
-            </div>
           </div>
         </div>
       </section>
@@ -98,9 +92,9 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, packages, b
       {/* Info Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'আইপি অ্যাড্রেস', val: '103.145.22.12', icon: '🌐', color: 'bg-blue-50 text-blue-600' },
+          { label: 'ইউজার আইডি', val: user.username, icon: '👤', color: 'bg-blue-50 text-blue-600' },
           { label: 'ডাটা লিমিট', val: 'আনলিমিটেড', icon: '♾️', color: 'bg-emerald-50 text-emerald-600' },
-          { label: 'মাসিক বিল', val: `৳${currentPackage?.price || 0}`, icon: '💰', color: 'bg-indigo-50 text-indigo-600' },
+          { label: 'বর্তমান ডিউ', val: `৳${user.balance}`, icon: '💰', color: 'bg-rose-50 text-rose-600' },
           { label: 'মেয়াদ শেষ হবে', val: user.expiryDate || '-', icon: '📅', color: 'bg-amber-50 text-amber-600' }
         ].map((s, idx) => (
           <div key={idx} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col items-center text-center">
@@ -116,26 +110,29 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, packages, b
           <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm">
             <h4 className="font-black text-slate-800 flex items-center gap-3 mb-8">
               <span className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center">📄</span>
-              বিলিং হিস্ট্রি
+              পেমেন্ট রেকর্ড
             </h4>
             <div className="space-y-4">
               {bills.length > 0 ? bills.map(bill => (
-                <div key={bill.id} className={`flex items-center justify-between p-6 rounded-[2rem] border ${bill.status === 'pending' ? 'bg-rose-50 border-rose-100' : 'bg-slate-50 border-slate-100'}`}>
+                <div key={bill.id} className="flex items-center justify-between p-6 rounded-[2rem] border bg-slate-50 border-slate-100">
                   <div className="flex items-center gap-5">
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm shadow-sm ${getMethodBadge(bill.method)}`}>
                       {bill.method === 'None' ? '!' : bill.method[0]}
                     </div>
                     <div>
                       <p className="text-base font-black text-slate-800">{bill.billingMonth}</p>
-                      <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase border mt-1 inline-block ${bill.status === 'paid' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-100 text-rose-600 border-rose-200'}`}>
-                        {bill.status === 'paid' ? 'পরিশোধিত' : 'বাকি আছে'}
+                      <span className="text-[10px] font-black px-3 py-1 rounded-full uppercase border mt-1 inline-block bg-emerald-50 text-emerald-600 border-emerald-100">
+                        পরিশোধিত
                       </span>
                     </div>
                   </div>
-                  <p className="text-xl font-black">৳{bill.amount}</p>
+                  <div className="text-right">
+                    <p className="text-xl font-black">৳{bill.amount}</p>
+                    <p className="text-[9px] text-slate-400 font-bold">{bill.date}</p>
+                  </div>
                 </div>
               )) : (
-                <p className="text-center py-10 text-slate-400 font-bold">কোনো বিল পাওয়া যায়নি।</p>
+                <p className="text-center py-10 text-slate-400 font-bold">কোনো পেমেন্ট রেকর্ড পাওয়া যায়নি।</p>
               )}
             </div>
           </div>

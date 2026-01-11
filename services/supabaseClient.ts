@@ -1,70 +1,42 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Attempt to get keys from environment or local storage safely
-const getInitialConfig = () => {
-  let envUrl = '';
-  let envKey = '';
-  
-  try {
-    // Check for process and process.env to prevent crashes
-    if (typeof process !== 'undefined' && process.env) {
-      envUrl = process.env.SUPABASE_URL || '';
-      envKey = process.env.SUPABASE_ANON_KEY || '';
-    }
-  } catch (e) {
-    console.warn("Environment variables not accessible directly:", e);
-  }
-  
-  const savedUrl = localStorage.getItem('NX_SUPABASE_URL');
-  const savedKey = localStorage.getItem('NX_SUPABASE_KEY');
-  
-  return {
-    url: envUrl || savedUrl || '',
-    key: envKey || savedKey || ''
-  };
+// Get credentials from injected process.env or fallback to provided strings
+const getSupabaseConfig = () => {
+  const url = process.env.SUPABASE_URL || 'https://dlvyazxvxvppfrqdugrs.supabase.co';
+  const key = process.env.SUPABASE_ANON_KEY || 'sb_publishable_-IlAKT0C4SeNYiPebZL7mQ_6bvzEIMv';
+  return { url, key };
 };
 
-let config = getInitialConfig();
+const config = getSupabaseConfig();
 
 export const isSupabaseConfigured = () => {
-  return config.url.length > 0 && config.key.length > 0 && config.url.includes('.supabase.co');
+  return config.url.includes('.supabase.co') && config.key.length > 5;
 };
 
-// Internal client instance
 let clientInstance: SupabaseClient | null = null;
 
 export const getSupabaseClient = (): SupabaseClient => {
   if (clientInstance) return clientInstance;
   
-  // Initialize with what we have or placeholders to prevent crash
-  clientInstance = createClient(
-    config.url || 'https://placeholder.supabase.co',
-    config.key || 'placeholder-key'
-  );
+  clientInstance = createClient(config.url, config.key);
   return clientInstance;
 };
 
-// Export the initial instance for compatibility
+// Export the singleton instance
 export const supabase = getSupabaseClient();
 
 /**
- * Re-initializes the client with new credentials
+ * Allows manual re-initialization if needed
  */
 export const initializeSupabase = (url: string, key: string) => {
   if (!url || !key) return false;
-  
   try {
-    const newClient = createClient(url, key);
-    clientInstance = newClient;
-    config = { url, key };
-    
-    // Persist for convenience if not in environment
+    clientInstance = createClient(url, key);
     localStorage.setItem('NX_SUPABASE_URL', url);
     localStorage.setItem('NX_SUPABASE_KEY', key);
-    
     return true;
   } catch (e) {
-    console.error("Failed to initialize Supabase:", e);
+    console.error("Supabase Init Error:", e);
     return false;
   }
 };
