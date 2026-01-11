@@ -6,19 +6,17 @@ import CustomerDashboard from './components/CustomerDashboard';
 import AdminDashboard from './components/AdminDashboard';
 import Navbar from './components/Navbar';
 
-// Mapping from DB columns to UI types
 const mapProfileToUser = (data: any, authEmail?: string): User => {
-  // Hardcoded Admin Access for the requested email
   let userRole = (data.Role?.toLowerCase() as any) || 'customer';
   if (authEmail === 'rkkaocher@gmail.com') {
     userRole = 'admin';
   }
 
   return {
-    id: data.id, // UUID from Auth
-    username: data.User_id || '', // String ID like 'mi@mazedul'
+    id: data.id,
+    username: data.User_id || '',
     fullName: data.Name || '',    
-    email: authEmail || '',      // From Auth session, not DB column
+    email: authEmail || '',      
     phone: data.Phone_number || '', 
     address: data.Address || '',   
     role: userRole, 
@@ -36,7 +34,6 @@ const mapUserToProfile = (user: Partial<User>) => {
   if (user.id) profile.id = user.id;
   if (user.username) profile.User_id = user.username;
   if (user.fullName !== undefined) profile.Name = user.fullName;
-  // Note: No email column in user's Customers table
   if (user.phone !== undefined) profile.Phone_number = user.phone;
   if (user.address !== undefined) profile.Address = user.address;
   if (user.role) profile.Role = user.role.charAt(0).toUpperCase() + user.role.slice(1); 
@@ -52,29 +49,49 @@ const App: React.FC = () => {
   const [packages, setPackages] = useState<Package[]>([]);
   const [auth, setAuth] = useState<AuthState>({ user: null, isAuthenticated: false });
   const [loading, setLoading] = useState(true);
+  const [diagnostics, setDiagnostics] = useState<string[]>(['অ্যাপ্লিকেশন শুরু হচ্ছে...']);
+  const [error, setError] = useState<string | null>(null);
   const [isConfigured] = useState(isSupabaseConfigured());
-  const [tableMissing, setTableMissing] = useState(false);
+
+  const addLog = (msg: string) => setDiagnostics(prev => [...prev.slice(-4), msg]);
 
   useEffect(() => {
-    if (!isConfigured) {
-      setLoading(false);
-      return;
-    }
+    // 10 second timeout for diagnostics
+    const safetyTimeout = setTimeout(() => {
+      if (loading) {
+        setLoading(false);
+        setError('সুপাবাস সার্ভার থেকে কোনো রেসপন্স পাওয়া যাচ্ছে না। আপনার প্রজেক্টের RLS পলিসি অথবা টেবিল নামগুলো সঠিক আছে কি না চেক করুন।');
+      }
+    }, 10000);
 
     const initAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        addLog('সুপাবাস সেশন চেক করা হচ্ছে...');
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) throw sessionError;
+
         if (session?.user) {
+          addLog('প্রোফাইল তথ্য সংগ্রহ করা হচ্ছে...');
           await fetchUserProfile(session.user.id, session.user.email);
+        } else {
+          addLog('লগইন করার জন্য প্রস্তুত।');
         }
       } catch (err: any) {
         console.error("Auth init error:", err.message);
+        setError(`কানেকশন এরর: ${err.message}`);
       } finally {
         setLoading(false);
+        clearTimeout(safetyTimeout);
       }
     };
 
-    initAuth();
+    if (isConfigured) {
+      initAuth();
+    } else {
+      setLoading(false);
+      setError('সুপাবাস এপিআই কী কনফিগার করা হয়নি।');
+    }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
@@ -84,32 +101,33 @@ const App: React.FC = () => {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(safetyTimeout);
+    };
   }, [isConfigured]);
 
   const fetchUserProfile = async (userId: string, email?: string) => {
     try {
-      const { data, error } = await supabase
+      const { data, error: profileError } = await supabase
         .from('Customers')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
 
-      if (error) {
-        if (error.message.includes('Customers')) setTableMissing(true);
-        throw error;
+      if (profileError) {
+        // This is where most common "loading" issues happen (e.g. table not found or RLS error)
+        throw new Error(`ডেটাবেস টেবিল এক্সেস এরর: ${profileError.message}`);
       }
       
       if (data) {
         setAuth({ user: mapProfileToUser(data, email), isAuthenticated: true });
-        setTableMissing(false);
+        setError(null);
       } else {
-        // If profile doesn't exist yet but user is authenticated (e.g., first sign up)
-        // We still set auth but with minimal info, handle role check here too
         const minimalUser: User = {
           id: userId,
           username: email?.split('@')[0] || '',
-          fullName: 'New User',
+          fullName: 'নতুন কাস্টমার',
           email: email || '',
           phone: '',
           address: '',
@@ -124,18 +142,15 @@ const App: React.FC = () => {
         setAuth({ user: minimalUser, isAuthenticated: true });
       }
     } catch (err: any) {
-      console.error("Profile fetch error:", err.message);
+      setError(err.message);
     }
   };
 
   const fetchData = async () => {
-    if (!auth.isAuthenticated || !isConfigured) return;
+    if (!auth.isAuthenticated) return;
     try {
-      // 1. Fetch Packages
-      const { data: pkgData, error: pkgError } = await supabase.from('Packages').select('*');
-      if (pkgError) {
-        if (pkgError.message.includes('Packages')) setTableMissing(true);
-      } else if (pkgData) {
+      const { data: pkgData } = await supabase.from('Packages').select('*');
+      if (pkgData) {
         setPackages(pkgData.map(p => ({
           id: p.Package_name, 
           name: p.Package_name || '',
@@ -146,7 +161,6 @@ const App: React.FC = () => {
         })));
       }
 
-      // 2. Fetch Bills (Payments) linked via User_id string
       if (auth.user?.role === 'admin') {
         const { data: userData } = await supabase.from('Customers').select('*');
         const { data: billData } = await supabase.from('Payments').select('*').order('created_at', { ascending: false });
@@ -154,7 +168,7 @@ const App: React.FC = () => {
         if (userData) setUsers(userData.map(u => mapProfileToUser(u)));
         if (billData) setBills(billData.map(b => ({
           id: b.id,
-          userId: b.User_id, // Link string
+          userId: b.User_id,
           amount: b.Paid_amount || 0,
           billingMonth: b.Month || 'N/A',
           status: 'paid',
@@ -165,7 +179,7 @@ const App: React.FC = () => {
         const { data: billData } = await supabase
           .from('Payments')
           .select('*')
-          .eq('User_id', auth.user?.username) // Matching the username string 'mi@mazedul' etc
+          .eq('User_id', auth.user?.username)
           .order('created_at', { ascending: false });
 
         if (billData) setBills(billData.map(b => ({
@@ -179,13 +193,13 @@ const App: React.FC = () => {
         })));
       }
     } catch (err: any) {
-      console.error("Data fetch error:", err.message);
+      console.error("Data loading error:", err.message);
     }
   };
 
   useEffect(() => {
     fetchData();
-  }, [auth.isAuthenticated, auth.user?.role, auth.user?.id, auth.user?.username, isConfigured]);
+  }, [auth.isAuthenticated, auth.user?.role, auth.user?.id, auth.user?.username]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -194,22 +208,30 @@ const App: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0F172A] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-slate-500 font-black text-[10px] tracking-widest uppercase animate-pulse">লোড হচ্ছে...</p>
+      <div className="min-h-screen bg-[#0F172A] flex flex-col items-center justify-center p-6">
+        <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mb-8"></div>
+        <div className="bg-slate-800/50 p-6 rounded-3xl border border-slate-700 w-full max-w-xs">
+          <p className="text-white font-bold text-[10px] uppercase tracking-widest mb-4 text-center">সিস্টেম ডায়াগনস্টিকস</p>
+          <div className="space-y-2">
+            {diagnostics.map((log, i) => (
+              <p key={i} className="text-[10px] text-slate-400 font-medium">
+                <span className="text-indigo-500 mr-2">></span> {log}
+              </p>
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
-  if (tableMissing) {
+  if (error) {
     return (
-      <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-6 text-white">
-        <div className="max-w-2xl w-full bg-[#1E293B] rounded-[2rem] p-10 border border-indigo-500/20 shadow-2xl">
-          <h2 className="text-2xl font-black mb-4 text-indigo-400">টেবিল সেটআপ ভুল! ⚠️</h2>
-          <p className="text-slate-400 mb-6 text-sm">Supabase-এ কলামের নামগুলো চেক করুন।</p>
-          <button onClick={() => window.location.reload()} className="w-full bg-indigo-600 py-4 rounded-2xl font-bold hover:bg-indigo-700 transition-all">রিলোড দিন</button>
+      <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white rounded-[3rem] p-10 shadow-2xl text-center space-y-6 animate-in zoom-in-95 duration-300">
+          <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto text-3xl">⚠️</div>
+          <h2 className="text-xl font-black text-slate-800">কানেকশন সমস্যা!</h2>
+          <p className="text-slate-500 text-xs leading-relaxed">{error}</p>
+          <button onClick={() => window.location.reload()} className="w-full bg-indigo-600 py-4 rounded-2xl font-bold text-white">রিলোড দিন</button>
         </div>
       </div>
     );
@@ -253,11 +275,7 @@ const App: React.FC = () => {
               await supabase.from('Payments').delete().eq('id', id);
               setBills(b => b.filter(x => x.id !== id));
             }}
-            onDeleteBillsByMonth={() => {}} 
-            onGenerateMonthlyBills={async (month, targetIds) => {
-              return 0;
-            }}
-            currentUser={auth.user} onExportData={() => {}} onImportData={() => {}}
+            onGenerateMonthlyBills={async (month, targetIds) => 0}
           />
         ) : (
           <CustomerDashboard user={auth.user!} packages={packages} bills={bills} />
