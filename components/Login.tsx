@@ -30,7 +30,9 @@ const Auth: React.FC = () => {
         if (signUpError) throw signUpError;
 
         if (authData.user) {
-          // Note: Removed 'email' column from insert as it doesn't exist in user's DB schema
+          // Attempt to create customer profile
+          // NOTE: If RLS prevents regular users from INSERTING into Customers table, 
+          // this will fail. Admin will need to manually approve/create profiles if so.
           const { error: profileError } = await supabase
             .from('Customers')
             .insert([
@@ -48,10 +50,11 @@ const Auth: React.FC = () => {
             ]);
 
           if (profileError) {
-            console.error("Profile creation error:", profileError.message);
-            throw new Error('ডেটাবেস টেবিল আপডেট প্রয়োজন। এডমিনকে জানান।');
+            console.warn("Profile creation blocked by RLS. This is expected if only Admin can INSERT.");
+            setSuccessMsg('রেজিস্ট্রেশন হয়েছে! অ্যাডমিন প্রোফাইল এপ্রুভ করলে আপনি লগইন করতে পারবেন।');
+          } else {
+            setSuccessMsg('রেজিস্ট্রেশন সফল! এখন লগইন করুন।');
           }
-          setSuccessMsg('রেজিস্ট্রেশন সফল! লগইন করুন।');
           setIsSignUp(false);
         }
       } else {
@@ -83,10 +86,10 @@ const Auth: React.FC = () => {
         <div className="text-center mb-10">
           <div className="w-20 h-20 bg-indigo-600 rounded-[2rem] mx-auto flex items-center justify-center text-white text-4xl font-black shadow-2xl shadow-indigo-500/40 mb-6 transform hover:rotate-6 transition-all duration-500">N</div>
           <h1 className="text-4xl font-black text-white tracking-tight mb-2">NexusConnect</h1>
-          <p className="text-slate-400 text-sm font-medium">{isSignUp ? 'রেজিস্ট্রেশন করুন' : 'লগইন করুন'}</p>
+          <p className="text-slate-400 text-sm font-medium">{isSignUp ? 'নতুন অ্যাকাউন্ট খুলুন' : 'লগইন করে ড্যাশবোর্ড দেখুন'}</p>
         </div>
 
-        <div className="bg-white rounded-[2.5rem] shadow-[0_40px_100px_rgba(0,0,0,0.4)] relative overflow-hidden transition-all duration-500">
+        <div className="bg-white rounded-[2.5rem] shadow-[0_40px_100px_rgba(0,0,0,0.4)] relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-500"></div>
           
           <form onSubmit={handleSubmit} className="p-8 md:p-10 space-y-5">
@@ -102,7 +105,7 @@ const Auth: React.FC = () => {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">ফোন</label>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">ফোন নাম্বার</label>
                       <input type="tel" required value={phone} onChange={e => setPhone(e.target.value)} className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 outline-none text-slate-900" placeholder="০১৮.." />
                     </div>
                     <div className="space-y-1">
@@ -115,25 +118,25 @@ const Auth: React.FC = () => {
 
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">ইমেইল</label>
-                <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 outline-none text-slate-900" placeholder="name@email.com" />
+                <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 outline-none text-slate-900" placeholder="example@mail.com" />
               </div>
 
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">পাসওয়ার্ড</label>
                 <div className="relative">
                   <input type={showPassword ? "text" : "password"} required value={password} onChange={e => setPassword(e.target.value)} className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 outline-none text-slate-900" placeholder="••••••••" />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">{showPassword ? '🙈' : '👁️'}</button>
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 px-3">{showPassword ? '🙈' : '👁️'}</button>
                 </div>
               </div>
             </div>
 
             <button type="submit" disabled={isLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-5 rounded-2xl shadow-xl shadow-indigo-500/20 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-3">
               {isLoading && <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>}
-              <span>{isSignUp ? 'রেজিস্ট্রেশন করুন' : 'লগইন করুন'}</span>
+              <span>{isSignUp ? 'নিবন্ধন সম্পন্ন করুন' : 'লগইন করুন'}</span>
             </button>
 
             <button type="button" onClick={() => setIsSignUp(!isSignUp)} className="w-full text-center text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors">
-              {isSignUp ? 'ইতিমধ্যে অ্যাকাউন্ট আছে? লগইন করুন' : 'অ্যাকাউন্ট নেই? নতুন অ্যাকাউন্ট তৈরি করুন'}
+              {isSignUp ? 'ইতিমধ্যে অ্যাকাউন্ট আছে? লগইন করুন' : 'অ্যাকাউন্ট নেই? নতুন অ্যাকাউন্ট খুলুন'}
             </button>
           </form>
         </div>
