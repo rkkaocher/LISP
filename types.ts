@@ -1,31 +1,36 @@
 
 export type UserRole = 'admin' | 'customer';
+export type ClientStatus = 'active' | 'expired' | 'suspended' | 'left' | 'free';
+export type TicketStatus = 'open' | 'in-progress' | 'resolved';
 
 export interface Package {
   id: string;
   name: string;
-  speed: number; // in Mbps
+  speed: number; 
   price: number;
   validityDays: number;
-  dataLimitGb: number; // 0 for unlimited
+  dataLimitGb: number; 
 }
 
 export interface User {
   id: string;
   username: string;
-  password?: string;
   fullName: string;
   email: string;
   phone: string;
   address: string;
   role: UserRole;
   packageId: string;
-  status: 'active' | 'expired' | 'suspended';
+  status: ClientStatus;
   expiryDate: string;
+  deadlineDate?: string;
   balance: number;
   dataUsedGb: number;
   dataLimitGb: number;
-  upstreamProvider?: string; // e.g., "Amber IT", "Link3", "Carnival"
+  zone?: string;
+  clientType?: 'Personal' | 'Business' | 'Free';
+  upstreamProvider?: string;
+  lastLogin?: string;
 }
 
 export interface BillingRecord {
@@ -33,11 +38,25 @@ export interface BillingRecord {
   userId: string;
   amount: number;
   date: string;
-  billingMonth: string; // Format: "January 2024"
-  status: 'paid' | 'pending';
+  billingMonth: string;
+  status: 'paid' | 'pending' | 'partial';
   method: 'Cash' | 'bKash' | 'Nagad' | 'Rocket' | 'None';
-  description?: string; // For miscellaneous charges like "Router purchase", "Connection fee"
-  type?: 'package' | 'miscellaneous';
+  description?: string;
+  deadline?: string;
+  invoiceId?: string;
+}
+
+export interface Ticket {
+  id: string;
+  userId: string;
+  userName: string;
+  category: string;
+  description: string;
+  status: TicketStatus;
+  priority: 'low' | 'medium' | 'high';
+  createdAt: string;
+  solvedAt?: string;
+  zone?: string;
 }
 
 export interface AuthState {
