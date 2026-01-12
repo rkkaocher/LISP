@@ -10,19 +10,21 @@ import Navbar from './components/Navbar';
 const ADMIN_EMAIL = 'rkkaocher@gmail.com';
 
 const mapProfileToUser = (data: any, authEmail?: string): User => {
-  let userRole: 'admin' | 'customer' = (authEmail === ADMIN_EMAIL || data.Role?.toLowerCase() === 'admin') ? 'admin' : 'customer';
-
+  // Enhanced Role Detection: Check database column or specific admin email
+  const dbRole = data?.Role?.toLowerCase() || '';
+  const isAdmin = (authEmail === ADMIN_EMAIL || dbRole === 'admin');
+  
   return {
     id: data.id,
-    username: data.User_id || '',
-    fullName: data.Name || '',    
+    username: data.User_id || authEmail?.split('@')[0] || '',
+    fullName: data.Name || 'Nexus User',    
     email: authEmail || data.Email || '',      
     phone: data.Phone_number || '', 
     address: data.Address || '',   
-    role: userRole, 
+    role: isAdmin ? 'admin' : 'customer', 
     packageId: data.Package || '10 Mbps', 
-    status: data.status || 'active',
-    expiryDate: data.Expiry_date || '', 
+    status: (data.status || 'active').toLowerCase() as any,
+    expiryDate: data.Expiry_date || new Date().toISOString().split('T')[0], 
     balance: data.Due_amount || 0,     
     dataUsedGb: data.data_used_gb || 0,
     dataLimitGb: data.data_limit_gb || 0,
@@ -54,10 +56,7 @@ const App: React.FC = () => {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [auth, setAuth] = useState<AuthState>({ user: null, isAuthenticated: false });
   const [loading, setLoading] = useState(true);
-  const [diagnostics, setDiagnostics] = useState<string[]>(['সিস্টেম স্টার্ট হচ্ছে...']);
   const [error, setError] = useState<string | null>(null);
-
-  const addLog = (msg: string) => setDiagnostics(prev => [...prev, msg]);
 
   useEffect(() => {
     const initialize = async () => {
@@ -94,13 +93,15 @@ const App: React.FC = () => {
       if (profileError) throw profileError;
       
       if (data) {
-        setAuth({ user: mapProfileToUser(data, email), isAuthenticated: true });
+        const mappedUser = mapProfileToUser(data, email);
+        setAuth({ user: mappedUser, isAuthenticated: true });
       } else {
+        // Fallback for new sign-ups or users not in Customers table yet
         setAuth({ 
           user: {
             id: userId,
             username: email?.split('@')[0] || 'user',
-            fullName: email === ADMIN_EMAIL ? 'অ্যাডমিন' : 'কাস্টমার',
+            fullName: email === ADMIN_EMAIL ? 'Admin User' : 'New Customer',
             email: email || '',
             phone: '',
             address: '',
@@ -141,7 +142,8 @@ const App: React.FC = () => {
       if (auth.user.role === 'admin') {
         const { data: userData } = await supabase.from('Customers').select('*');
         const { data: billData } = await supabase.from('Payments').select('*');
-        // Simulated Tickets for Admin
+        
+        // Populate tickets with real data or keep simulation
         setTickets([
           { id: '1', userId: 'demo', userName: 'Rahim Khan', category: 'Speed Issue', description: 'Low download speed in Dhap area', status: 'open', priority: 'high', createdAt: new Date().toISOString(), zone: 'Dhap' }
         ]);
@@ -170,18 +172,18 @@ const App: React.FC = () => {
   }, [auth.isAuthenticated, auth.user?.role]);
 
   if (loading) return (
-    <div className="min-h-screen bg-[#0F172A] flex flex-col items-center justify-center p-6">
-      <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mb-8"></div>
-      <p className="text-white font-black text-xs uppercase tracking-[0.3em]">NexusConnect Loading...</p>
+    <div className="min-h-screen bg-[#0F172A] flex flex-col items-center justify-center p-6 text-center">
+      <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mb-6"></div>
+      <p className="text-white font-black text-[10px] uppercase tracking-[0.4em]">NexusConnect</p>
     </div>
   );
 
   if (error) return (
     <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-6 text-center">
       <div className="bg-white p-10 rounded-[3rem] shadow-2xl max-w-md">
-        <h2 className="text-2xl font-black text-slate-800 mb-4">Error Detected</h2>
-        <p className="text-slate-500 text-sm mb-8 leading-relaxed">Could not establish connection to the server.</p>
-        <button onClick={() => window.location.reload()} className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-bold">Retry</button>
+        <h2 className="text-2xl font-black text-slate-800 mb-2">Sync Failed</h2>
+        <p className="text-slate-500 text-xs mb-8 uppercase tracking-widest font-bold">Could not connect to Supabase</p>
+        <button onClick={() => window.location.reload()} className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-bold">Retry Sync</button>
       </div>
     </div>
   );
@@ -195,9 +197,20 @@ const App: React.FC = () => {
         {auth.user?.role === 'admin' ? (
           <AdminDashboard 
             users={users} packages={packages} bills={bills} tickets={tickets}
-            onUpdateUser={async (u) => { await supabase.from('Customers').update(mapUserToProfile(u)).eq('id', u.id); fetchData(); }} 
-            onAddUser={async (u) => { await supabase.from('Customers').insert(mapUserToProfile(u)); fetchData(); }}
-            onDeleteUser={async (id) => { await supabase.from('Customers').delete().eq('id', id); fetchData(); }}
+            onUpdateUser={async (u) => { 
+              const { error } = await supabase.from('Customers').update(mapUserToProfile(u)).eq('id', u.id); 
+              if (error) throw error;
+              fetchData(); 
+            }} 
+            onAddUser={async (u) => { 
+              const { error } = await supabase.from('Customers').insert(mapUserToProfile(u)); 
+              if (error) throw error;
+              fetchData(); 
+            }}
+            onDeleteUser={async (id) => { 
+              await supabase.from('Customers').delete().eq('id', id); 
+              fetchData(); 
+            }}
             onAddBill={async (b) => {
               await supabase.from('Payments').insert({ User_id: b.userId, Paid_amount: b.amount, Month: b.billingMonth, Payment_method: b.method, Payment_date: new Date().toISOString() });
               fetchData();
@@ -209,8 +222,8 @@ const App: React.FC = () => {
           <CustomerDashboard user={auth.user!} packages={packages} bills={bills} />
         )}
       </main>
-      <footer className="bg-white border-t py-6 text-center text-slate-400 text-[10px] font-bold uppercase tracking-widest">
-        &copy; {new Date().getFullYear()} NexusConnect Broadband • High Performance Connectivity
+      <footer className="bg-white border-t py-8 text-center text-slate-400 text-[10px] font-black uppercase tracking-widest">
+        NexusConnect High Performance Connectivity • {new Date().getFullYear()}
       </footer>
     </div>
   );
