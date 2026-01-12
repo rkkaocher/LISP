@@ -28,18 +28,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Stats for Dashboard
+  // Stats
   const stats = useMemo(() => {
     const total = users.length;
     const active = users.filter(u => u.status === 'active').length;
     const expired = users.filter(u => u.status === 'expired').length;
-    const unpaid = users.filter(u => u.balance > 0).length;
     const totalDue = users.reduce((acc, curr) => acc + curr.balance, 0);
     const monthlyIncome = bills.filter(b => b.status === 'paid').reduce((acc, curr) => acc + curr.amount, 0);
-    const openTickets = tickets?.filter(t => t.status === 'open').length || 0;
 
-    return { total, active, expired, unpaid, totalDue, monthlyIncome, openTickets };
-  }, [users, bills, tickets]);
+    return { total, active, expired, totalDue, monthlyIncome };
+  }, [users, bills]);
 
   const filteredUsers = users.filter(u => {
     const matchesSearch = u.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || u.username.toLowerCase().includes(searchTerm.toLowerCase());
@@ -47,7 +45,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return matchesSearch && matchesStatus;
   });
 
-  const handleOpenAddModal = () => {
+  const handleOpenAddModal = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setEditingUser({
       id: crypto.randomUUID(),
       username: '',
@@ -84,27 +84,29 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         await onAddUser(editingUser);
       }
       setIsModalOpen(false);
+      setEditingUser(null);
     } catch (err) {
       console.error("Save error:", err);
+      alert("সেভ করতে ব্যর্থ হয়েছে। নেটওয়ার্ক চেক করুন।");
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-      {/* Navigation Tabs - Scrollable on mobile */}
+    <div className="space-y-6 animate-in fade-in duration-500 pb-20 relative">
+      {/* Navigation */}
       <div className="flex overflow-x-auto bg-white p-1 rounded-3xl border border-slate-100 shadow-sm w-full md:w-fit no-scrollbar">
         {[
-          { id: 'overview', label: 'Overview', icon: '📊' },
-          { id: 'clients', label: 'Clients', icon: '👥' },
-          { id: 'billing', label: 'Billing', icon: '💰' },
-          { id: 'tickets', label: 'Support', icon: '🛠️' }
+          { id: 'overview', label: 'সারাংশ', icon: '📊' },
+          { id: 'clients', label: 'কাস্টমার', icon: '👥' },
+          { id: 'billing', label: 'বিলিং', icon: '💰' },
+          { id: 'tickets', label: 'সাপোর্ট', icon: '🛠️' }
         ].map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`whitespace-nowrap px-6 py-3 rounded-2xl text-[10px] md:text-xs font-black transition-all flex items-center gap-2 ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}
+            className={`whitespace-nowrap px-6 py-3 rounded-2xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}
           >
             <span>{tab.icon}</span> {tab.label}
           </button>
@@ -112,50 +114,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       </div>
 
       {activeTab === 'overview' && (
-        <div className="space-y-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-            <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border border-slate-100 shadow-sm">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Active Clients</p>
-              <h3 className="text-3xl md:text-4xl font-black text-slate-800">{stats.active} <span className="text-sm opacity-50">/ {stats.total}</span></h3>
-              <div className="w-full bg-slate-50 h-1.5 mt-4 rounded-full overflow-hidden">
-                <div className="bg-emerald-500 h-full transition-all duration-1000" style={{ width: `${(stats.active / stats.total) * 100}%` }}></div>
-              </div>
-            </div>
-            {/* ... other stats cards ... */}
-            <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-sm">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Monthly Income</p>
-              <h3 className="text-3xl md:text-4xl font-black text-indigo-600">৳{stats.monthlyIncome}</h3>
-            </div>
-            <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-sm">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Outstanding Due</p>
-              <h3 className="text-3xl md:text-4xl font-black text-rose-500">৳{stats.totalDue}</h3>
-            </div>
-            <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-sm">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Open Issues</p>
-              <h3 className="text-3xl md:text-4xl font-black text-amber-500">{stats.openTickets}</h3>
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">মোট গ্রাহক</p>
+            <h3 className="text-3xl font-black text-slate-800">{stats.total}</h3>
+            <p className="text-[10px] font-bold text-emerald-500 mt-2">{stats.active} জন সচল</p>
           </div>
-          
-          {/* Chart placeholder logic... */}
-          <div className="bg-white p-6 md:p-10 rounded-[2.5rem] border border-slate-100">
-             <h4 className="font-black text-slate-800 mb-6 uppercase text-[10px] tracking-widest">Zone Distribution</h4>
-             <div className="space-y-4">
-                {ZONES.map(z => {
-                  const zoneClients = users.filter(u => u.zone === z).length;
-                  const pct = stats.total > 0 ? (zoneClients / stats.total) * 100 : 0;
-                  return (
-                    <div key={z} className="group">
-                      <div className="flex justify-between text-[10px] font-black mb-1.5 uppercase">
-                         <span className="text-slate-500 group-hover:text-indigo-600 transition-colors">{z}</span>
-                         <span className="text-slate-800">{zoneClients} Users</span>
-                      </div>
-                      <div className="h-2 bg-slate-50 rounded-full overflow-hidden">
-                         <div className="bg-indigo-600 h-full transition-all duration-500" style={{ width: `${pct}%` }}></div>
-                      </div>
-                    </div>
-                  )
-                })}
-             </div>
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">মেয়াদোত্তীর্ণ (Expired)</p>
+            <h3 className="text-3xl font-black text-rose-500">{stats.expired}</h3>
+          </div>
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">মোট বকেয়া</p>
+            <h3 className="text-3xl font-black text-rose-600">৳{stats.totalDue}</h3>
+          </div>
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">মাসিক আয়</p>
+            <h3 className="text-3xl font-black text-indigo-600">৳{stats.monthlyIncome}</h3>
           </div>
         </div>
       )}
@@ -166,7 +141,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
               <input 
                 type="text" 
-                placeholder="Search..." 
+                placeholder="নাম বা আইডি দিয়ে খুঁজুন..." 
                 className="px-6 py-4 bg-slate-50 border-none rounded-2xl text-xs font-bold w-full md:w-64 outline-none focus:ring-4 focus:ring-indigo-500/10"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
@@ -176,29 +151,28 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 value={statusFilter}
                 onChange={e => setStatusFilter(e.target.value as any)}
               >
-                <option value="all">All Status</option>
+                <option value="all">সব স্ট্যাটাস</option>
                 <option value="active">Active</option>
                 <option value="expired">Expired</option>
-                <option value="suspended">Suspended</option>
               </select>
             </div>
-            <div className="flex gap-2 w-full md:w-auto">
-              <button onClick={handleOpenAddModal} className="flex-1 md:flex-none px-8 py-4 bg-indigo-600 text-white rounded-2xl text-xs font-black shadow-xl shadow-indigo-100 hover:scale-[1.02] active:scale-[0.98] transition-all">
-                + Add Client
-              </button>
-            </div>
+            <button 
+              onClick={handleOpenAddModal}
+              className="w-full md:w-auto px-8 py-4 bg-indigo-600 text-white rounded-2xl text-xs font-black shadow-xl shadow-indigo-100 hover:scale-[1.02] active:scale-[0.95] transition-all z-10"
+            >
+              + Add Client
+            </button>
           </div>
 
-          {/* Desktop Table */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-left">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left min-w-[600px]">
               <thead className="bg-slate-50/50">
                 <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  <th className="px-8 py-6">Client</th>
-                  <th className="px-8 py-6">Zone & ID</th>
-                  <th className="px-8 py-6">Status</th>
-                  <th className="px-8 py-6">Due</th>
-                  <th className="px-8 py-6 text-right">Actions</th>
+                  <th className="px-8 py-6">গ্রাহক</th>
+                  <th className="px-8 py-6">জোন ও আইডি</th>
+                  <th className="px-8 py-6">স্ট্যাটাস</th>
+                  <th className="px-8 py-6">বকেয়া</th>
+                  <th className="px-8 py-6 text-right">অ্যাকশন</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -211,50 +185,30 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </div>
                     </td>
                     <td className="px-8 py-6">
-                       <span className="text-[10px] font-black bg-indigo-50 text-indigo-600 px-2 py-1 rounded-lg uppercase">{user.zone || 'N/A'}</span>
+                       <span className="text-[10px] font-black bg-indigo-50 text-indigo-600 px-2 py-1 rounded-lg uppercase">{user.zone}</span>
                        <p className="text-[10px] font-bold text-slate-400 mt-1">ID: {user.username}</p>
                     </td>
                     <td className="px-8 py-6">
                       <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                        user.status === 'active' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                        user.status === 'active' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-600 border border-rose-100'
                       }`}>
-                        {user.status}
+                        {user.status === 'active' ? 'সচল' : 'মেয়াদ শেষ'}
                       </span>
                     </td>
-                    <td className="px-8 py-6">
-                      <p className={`text-sm font-black ${user.balance > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>৳{user.balance}</p>
-                    </td>
+                    <td className="px-8 py-6 font-black text-sm">৳{user.balance}</td>
                     <td className="px-8 py-6 text-right">
-                       <button onClick={() => handleOpenEditModal(user)} className="p-3 bg-slate-100 hover:bg-indigo-600 hover:text-white rounded-xl transition-all">✏️</button>
+                       <button 
+                         onClick={() => handleOpenEditModal(user)} 
+                         className="p-3 bg-slate-100 hover:bg-indigo-600 hover:text-white rounded-xl transition-all shadow-sm"
+                         title="এডিট করুন"
+                       >
+                         ✏️
+                       </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
-
-          {/* Mobile Card List */}
-          <div className="md:hidden divide-y divide-slate-50">
-             {filteredUsers.map(user => (
-               <div key={user.id} className="p-6 space-y-4">
-                  <div className="flex justify-between items-start">
-                     <div>
-                        <h4 className="text-sm font-black text-slate-800">{user.fullName}</h4>
-                        <p className="text-[10px] font-bold text-slate-400">{user.phone} • {user.zone}</p>
-                     </div>
-                     <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${user.status === 'active' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                        {user.status}
-                     </span>
-                  </div>
-                  <div className="flex justify-between items-end">
-                     <div>
-                        <p className="text-[9px] font-black text-slate-300 uppercase">Balance</p>
-                        <p className={`text-sm font-black ${user.balance > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>৳{user.balance}</p>
-                     </div>
-                     <button onClick={() => handleOpenEditModal(user)} className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black">Edit User</button>
-                  </div>
-               </div>
-             ))}
           </div>
         </div>
       )}
@@ -262,16 +216,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* Add/Edit Modal */}
       {isModalOpen && editingUser && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-           <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
+           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
            <div className="relative bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
               <div className="bg-indigo-600 p-8 text-white">
-                 <h3 className="text-xl font-black">{editingUser.fullName ? 'Edit Client' : 'Add New Client'}</h3>
-                 <p className="text-xs opacity-70 font-bold uppercase tracking-widest mt-1">Configure client profile and plan</p>
+                 <div className="flex justify-between items-start">
+                    <div>
+                       <h3 className="text-xl font-black">{editingUser.fullName ? 'কাস্টমার আপডেট' : 'নতুন কাস্টমার যোগ'}</h3>
+                       <p className="text-xs opacity-70 font-bold uppercase tracking-widest mt-1">প্রোফাইল ইনফরমেশন</p>
+                    </div>
+                    <button onClick={() => setIsModalOpen(false)} className="text-white/50 hover:text-white text-2xl">✕</button>
+                 </div>
               </div>
-              <form onSubmit={handleSaveUser} className="p-8 space-y-5">
-                 <div className="grid grid-cols-2 gap-4">
+              <form onSubmit={handleSaveUser} className="p-8 space-y-5 max-h-[75vh] overflow-y-auto custom-scrollbar">
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1">
-                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
+                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">পূর্ণ নাম</label>
                        <input 
                           type="text" required 
                           className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/10"
@@ -280,7 +239,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                        />
                     </div>
                     <div className="space-y-1">
-                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Username / ID</label>
+                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ইউজার আইডি</label>
                        <input 
                           type="text" required
                           className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/10"
@@ -290,9 +249,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                  </div>
 
-                 <div className="grid grid-cols-2 gap-4">
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1">
-                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phone</label>
+                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ফোন নাম্বার</label>
                        <input 
                           type="tel" required
                           className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/10"
@@ -301,7 +260,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                        />
                     </div>
                     <div className="space-y-1">
-                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Zone</label>
+                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">জোন</label>
                        <select 
                           className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none"
                           value={editingUser.zone}
@@ -313,7 +272,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                  </div>
 
                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Internet Package</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ইন্টারনেট প্যাকেজ</label>
                     <select 
                        className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none"
                        value={editingUser.packageId}
@@ -323,35 +282,44 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </select>
                  </div>
 
-                 <div className="grid grid-cols-2 gap-4">
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1">
-                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Status</label>
+                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">স্ট্যাটাস</label>
                        <select 
                           className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none"
                           value={editingUser.status}
                           onChange={e => setEditingUser({...editingUser, status: e.target.value as any})}
                        >
-                          <option value="active">Active</option>
-                          <option value="expired">Expired</option>
-                          <option value="suspended">Suspended</option>
+                          <option value="active">Active (সচল)</option>
+                          <option value="expired">Expired (মেয়াদ শেষ)</option>
+                          <option value="suspended">Suspended (স্থগিত)</option>
                        </select>
                     </div>
                     <div className="space-y-1">
-                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Due Amount</label>
+                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">বকেয়া পরিমাণ (৳)</label>
                        <input 
                           type="number"
-                          className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/10"
+                          className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none"
                           value={editingUser.balance}
                           onChange={e => setEditingUser({...editingUser, balance: parseInt(e.target.value) || 0})}
                        />
                     </div>
                  </div>
 
+                 <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">মেয়াদ শেষ হবার তারিখ</label>
+                    <input 
+                       type="date"
+                       className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none"
+                       value={editingUser.expiryDate}
+                       onChange={e => setEditingUser({...editingUser, expiryDate: e.target.value})}
+                    />
+                 </div>
+
                  <div className="flex gap-3 pt-4">
-                    <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 text-xs font-black text-slate-400 hover:text-slate-600 transition-all">Cancel</button>
-                    <button type="submit" disabled={isSaving} className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl text-xs font-black shadow-xl shadow-indigo-100 flex items-center justify-center gap-2">
-                       {isSaving && <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>}
-                       {isSaving ? 'Saving...' : 'Save Changes'}
+                    <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 text-xs font-black text-slate-400">বাতিল</button>
+                    <button type="submit" disabled={isSaving} className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl text-xs font-black shadow-xl flex items-center justify-center gap-2 disabled:opacity-50">
+                       {isSaving ? 'প্রসেসিং...' : 'সংরক্ষণ করুন'}
                     </button>
                  </div>
               </form>

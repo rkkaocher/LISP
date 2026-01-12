@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AuthState, User, Package, BillingRecord, Ticket } from './types';
 import { supabase, isSupabaseConfigured } from './services/supabaseClient';
 import Auth from './components/Login'; 
@@ -10,8 +10,7 @@ import Navbar from './components/Navbar';
 const ADMIN_EMAIL = 'rkkaocher@gmail.com';
 
 const mapProfileToUser = (data: any, authEmail?: string): User => {
-  // Enhanced Role Detection: Check database column or specific admin email
-  const dbRole = data?.Role?.toLowerCase() || '';
+  const dbRole = (data?.Role || '').toString().toLowerCase().trim();
   const isAdmin = (authEmail === ADMIN_EMAIL || dbRole === 'admin');
   
   return {
@@ -53,55 +52,28 @@ const App: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [bills, setBills] = useState<BillingRecord[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
-  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [auth, setAuth] = useState<AuthState>({ user: null, isAuthenticated: false });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const initialize = async () => {
-      try {
-        if (!isSupabaseConfigured()) throw new Error("সুপাবাস কনফিগারেশন মিসিং!");
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          await fetchUserProfile(session.user.id, session.user.email);
-        } else {
-          setLoading(false);
-        }
-      } catch (err: any) {
-        setError(err.message);
-        setLoading(false);
-      }
-    };
-    initialize();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        setLoading(true);
-        await fetchUserProfile(session.user.id, session.user.email);
-      } else if (event === 'SIGNED_OUT') {
-        setAuth({ user: null, isAuthenticated: false });
-        setLoading(false);
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const fetchUserProfile = async (userId: string, email?: string) => {
+  const fetchUserProfile = useCallback(async (userId: string, email?: string) => {
     try {
-      const { data, error: profileError } = await supabase.from('Customers').select('*').eq('id', userId).maybeSingle();
+      const { data, error: profileError } = await supabase
+        .from('Customers')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+      
       if (profileError) throw profileError;
       
       if (data) {
-        const mappedUser = mapProfileToUser(data, email);
-        setAuth({ user: mappedUser, isAuthenticated: true });
+        setAuth({ user: mapProfileToUser(data, email), isAuthenticated: true });
       } else {
-        // Fallback for new sign-ups or users not in Customers table yet
         setAuth({ 
           user: {
             id: userId,
             username: email?.split('@')[0] || 'user',
-            fullName: email === ADMIN_EMAIL ? 'Admin User' : 'New Customer',
+            fullName: email === ADMIN_EMAIL ? 'অ্যাডমিন' : 'নতুন কাস্টমার',
             email: email || '',
             phone: '',
             address: '',
@@ -118,11 +90,49 @@ const App: React.FC = () => {
         });
       }
     } catch (err: any) {
-      setError(err.message);
+      console.error("Profile Fetch Error:", err);
+      setError("প্রোফাইল তথ্য লোড করা যায়নি।");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  const initializeApp = useCallback(async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      if (!isSupabaseConfigured()) throw new Error("সুপাবাস কানেক্ট করা যায়নি!");
+      
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+
+      if (session?.user) {
+        await fetchUserProfile(session.user.id, session.user.email);
+      } else {
+        setAuth({ user: null, isAuthenticated: false });
+        setLoading(false);
+      }
+    } catch (err: any) {
+      setError("সার্ভারের সাথে কানেক্ট করা সম্ভব হচ্ছে না।");
+      setLoading(false);
+    }
+  }, [fetchUserProfile]);
+
+  useEffect(() => {
+    initializeApp();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        setLoading(true);
+        await fetchUserProfile(session.user.id, session.user.email);
+      } else if (event === 'SIGNED_OUT') {
+        setAuth({ user: null, isAuthenticated: false });
+        setLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [initializeApp, fetchUserProfile]);
 
   const fetchData = async () => {
     if (!auth.isAuthenticated || !auth.user) return;
@@ -139,23 +149,36 @@ const App: React.FC = () => {
         })));
       }
 
+      const today = new Date().toISOString().split('T')[0];
+
       if (auth.user.role === 'admin') {
         const { data: userData } = await supabase.from('Customers').select('*');
         const { data: billData } = await supabase.from('Payments').select('*');
         
-        // Populate tickets with real data or keep simulation
-        setTickets([
-          { id: '1', userId: 'demo', userName: 'Rahim Khan', category: 'Speed Issue', description: 'Low download speed in Dhap area', status: 'open', priority: 'high', createdAt: new Date().toISOString(), zone: 'Dhap' }
-        ]);
+        if (userData) {
+          const mappedUsers = userData.map(u => mapProfileToUser(u, u.Email));
+          const updatedUsers = await Promise.all(mappedUsers.map(async (user) => {
+            if (user.status === 'active' && user.expiryDate && user.expiryDate < today) {
+              await supabase.from('Customers').update({ status: 'expired' }).eq('id', user.id);
+              return { ...user, status: 'expired' as any };
+            }
+            return user;
+          }));
+          setUsers(updatedUsers);
+        }
 
-        if (userData) setUsers(userData.map(u => mapProfileToUser(u, u.Email)));
         if (billData) setBills(billData.map(b => ({
           id: b.id, userId: b.User_id, amount: b.Paid_amount || 0,
           billingMonth: b.Month || 'N/A', status: 'paid',
           method: b.Payment_method || 'None', date: b.Payment_date?.split('T')[0] || ''
         })));
       } else {
-        const { data: billData } = await supabase.from('Payments').select('*');
+        if (auth.user.status === 'active' && auth.user.expiryDate && auth.user.expiryDate < today) {
+           await supabase.from('Customers').update({ status: 'expired' }).eq('id', auth.user.id);
+           setAuth(prev => prev.user ? { ...prev, user: { ...prev.user, status: 'expired' as any } } : prev);
+        }
+
+        const { data: billData } = await supabase.from('Payments').select('*').eq('User_id', auth.user.username);
         if (billData) setBills(billData.map(b => ({
           id: b.id, userId: b.User_id, amount: b.Paid_amount || 0,
           billingMonth: b.Month || 'N/A', status: 'paid',
@@ -163,7 +186,7 @@ const App: React.FC = () => {
         })));
       }
     } catch (err) {
-      console.error("Fetch error:", err);
+      console.error("Fetch data error:", err);
     }
   };
 
@@ -174,16 +197,17 @@ const App: React.FC = () => {
   if (loading) return (
     <div className="min-h-screen bg-[#0F172A] flex flex-col items-center justify-center p-6 text-center">
       <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mb-6"></div>
-      <p className="text-white font-black text-[10px] uppercase tracking-[0.4em]">NexusConnect</p>
+      <p className="text-white font-black text-[10px] uppercase tracking-[0.4em] animate-pulse">Connecting to NexusConnect...</p>
     </div>
   );
 
   if (error) return (
     <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-6 text-center">
-      <div className="bg-white p-10 rounded-[3rem] shadow-2xl max-w-md">
-        <h2 className="text-2xl font-black text-slate-800 mb-2">Sync Failed</h2>
-        <p className="text-slate-500 text-xs mb-8 uppercase tracking-widest font-bold">Could not connect to Supabase</p>
-        <button onClick={() => window.location.reload()} className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-bold">Retry Sync</button>
+      <div className="bg-white p-10 rounded-[3rem] shadow-2xl max-w-md animate-in zoom-in duration-300">
+        <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center text-2xl mx-auto mb-4">⚠️</div>
+        <h2 className="text-xl font-black text-slate-800 mb-2">{error}</h2>
+        <p className="text-slate-500 text-xs mb-8 font-medium">আপনার ইন্টারনেট কানেকশন চেক করে আবার চেষ্টা করুন।</p>
+        <button onClick={initializeApp} className="w-full bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black shadow-xl shadow-indigo-100 active:scale-95 transition-all">Retry Now</button>
       </div>
     </div>
   );
@@ -196,26 +220,26 @@ const App: React.FC = () => {
       <main className="flex-grow container mx-auto px-4 py-8">
         {auth.user?.role === 'admin' ? (
           <AdminDashboard 
-            users={users} packages={packages} bills={bills} tickets={tickets}
+            users={users} packages={packages} bills={bills}
             onUpdateUser={async (u) => { 
               const { error } = await supabase.from('Customers').update(mapUserToProfile(u)).eq('id', u.id); 
               if (error) throw error;
-              fetchData(); 
+              await fetchData(); 
             }} 
             onAddUser={async (u) => { 
               const { error } = await supabase.from('Customers').insert(mapUserToProfile(u)); 
               if (error) throw error;
-              fetchData(); 
+              await fetchData(); 
             }}
             onDeleteUser={async (id) => { 
               await supabase.from('Customers').delete().eq('id', id); 
-              fetchData(); 
+              await fetchData(); 
             }}
             onAddBill={async (b) => {
               await supabase.from('Payments').insert({ User_id: b.userId, Paid_amount: b.amount, Month: b.billingMonth, Payment_method: b.method, Payment_date: new Date().toISOString() });
-              fetchData();
+              await fetchData();
             }}
-            onDeleteBill={async (id) => { await supabase.from('Payments').delete().eq('id', id); fetchData(); }}
+            onDeleteBill={async (id) => { await supabase.from('Payments').delete().eq('id', id); await fetchData(); }}
             onGenerateMonthlyBills={async () => 0}
           />
         ) : (

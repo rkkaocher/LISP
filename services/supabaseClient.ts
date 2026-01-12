@@ -1,17 +1,12 @@
+
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const getSupabaseConfig = () => {
-  // Directly using the keys confirmed from your screenshot
-  const url = 'https://dlvyazxvxvppfrqdugrs.supabase.co';
-  const key = 'sb_publishable_-IlAKT0C4SeNYiPebZL7mQ_6bvzEIMv';
-  return { url, key };
-};
-
-const config = getSupabaseConfig();
+// Centralized configuration to ensure consistency across environments
+const SUPABASE_URL = 'https://dlvyazxvxvppfrqdugrs.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_-IlAKT0C4SeNYiPebZL7mQ_6bvzEIMv';
 
 export const isSupabaseConfigured = () => {
-  // Support both old JWT format (eyJ) and new format (sb_publishable)
-  return !!(config.url && config.key && config.url.includes('.supabase.co'));
+  return !!(SUPABASE_URL && SUPABASE_KEY && SUPABASE_URL.includes('.supabase.co'));
 };
 
 let clientInstance: SupabaseClient | null = null;
@@ -19,14 +14,22 @@ let clientInstance: SupabaseClient | null = null;
 export const getSupabaseClient = (): SupabaseClient => {
   if (clientInstance) return clientInstance;
   
-  if (!config.url || !config.key) {
-    throw new Error("Supabase URL or Publishable Key is missing.");
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    throw new Error("Supabase URL or Publishable Key is missing in configuration.");
   }
 
-  clientInstance = createClient(config.url, config.key, {
+  clientInstance = createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storageKey: 'nexus-connect-auth-token'
+    },
+    global: {
+      headers: { 'x-application-name': 'nexus-connect' },
+    },
+    db: {
+      schema: 'public'
     }
   });
   return clientInstance;

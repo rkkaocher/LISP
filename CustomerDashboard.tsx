@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { User, Package, BillingRecord } from '../types';
 import { getSupportAdvice } from '../services/geminiService';
@@ -96,19 +97,23 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, packages, b
               
               <div className="space-y-4">
                 {pendingBills.map(bill => (
+                  /* Fixed line 99: type property access is now valid after interface update */
                   <div key={bill.id} className={`flex items-center justify-between p-5 rounded-[1.5rem] animate-pulse ${bill.type === 'miscellaneous' ? 'bg-amber-50 border-amber-100' : 'bg-red-50 border-red-100'}`}>
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-xl shadow-sm">
+                        {/* Fixed line 102: valid property access */}
                         {bill.type === 'miscellaneous' ? '📋' : '⚠️'}
                       </div>
                       <div>
                         <p className="text-sm font-bold text-slate-800">{bill.billingMonth}</p>
+                        {/* Fixed line 106: valid property access */}
                         <p className={`text-[10px] font-bold uppercase tracking-wide ${bill.type === 'miscellaneous' ? 'text-amber-600' : 'text-red-500'}`}>
                           {bill.description || 'বাকি বিল - ইন্টারনেট'}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
+                      {/* Fixed line 112: valid property access */}
                       <p className={`text-lg font-black ${bill.type === 'miscellaneous' ? 'text-amber-600' : 'text-red-600'}`}>৳{bill.amount}</p>
                     </div>
                   </div>

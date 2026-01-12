@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { supabase } from '../services/supabaseClient';
 
@@ -30,9 +31,6 @@ const Auth: React.FC = () => {
         if (signUpError) throw signUpError;
 
         if (authData.user) {
-          // Attempt to create customer profile
-          // NOTE: If RLS prevents regular users from INSERTING into Customers table, 
-          // this will fail. Admin will need to manually approve/create profiles if so.
           const { error: profileError } = await supabase
             .from('Customers')
             .insert([
@@ -50,7 +48,6 @@ const Auth: React.FC = () => {
             ]);
 
           if (profileError) {
-            console.warn("Profile creation blocked by RLS. This is expected if only Admin can INSERT.");
             setSuccessMsg('রেজিস্ট্রেশন হয়েছে! অ্যাডমিন প্রোফাইল এপ্রুভ করলে আপনি লগইন করতে পারবেন।');
           } else {
             setSuccessMsg('রেজিস্ট্রেশন সফল! এখন লগইন করুন।');
@@ -78,64 +75,70 @@ const Auth: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#0F172A] p-6 selection:bg-indigo-500/30 overflow-x-hidden">
-      <div className="fixed top-[-10%] left-[-10%] w-[60%] h-[60%] bg-indigo-600/10 blur-[120px] rounded-full"></div>
-      <div className="fixed bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-violet-600/10 blur-[120px] rounded-full"></div>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#0F172A] p-4 selection:bg-indigo-500/30 overflow-hidden">
+      {/* Dynamic Background Elements */}
+      <div className="fixed top-[-15%] left-[-15%] w-[70%] h-[70%] bg-indigo-600/10 blur-[150px] rounded-full"></div>
+      <div className="fixed bottom-[-15%] right-[-15%] w-[70%] h-[70%] bg-violet-600/10 blur-[150px] rounded-full"></div>
 
-      <div className="w-full max-w-[480px] relative z-10">
+      <div className="w-full max-w-[440px] relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-1000">
         <div className="text-center mb-10">
-          <div className="w-20 h-20 bg-indigo-600 rounded-[2rem] mx-auto flex items-center justify-center text-white text-4xl font-black shadow-2xl shadow-indigo-500/40 mb-6 transform hover:rotate-6 transition-all duration-500">N</div>
+          <div className="w-20 h-20 bg-indigo-600 rounded-[2.5rem] mx-auto flex items-center justify-center text-white text-4xl font-black shadow-2xl shadow-indigo-500/40 mb-6 transform hover:rotate-6 transition-all duration-500">N</div>
           <h1 className="text-4xl font-black text-white tracking-tight mb-2">NexusConnect</h1>
-          <p className="text-slate-400 text-sm font-medium">{isSignUp ? 'নতুন অ্যাকাউন্ট খুলুন' : 'লগইন করে ড্যাশবোর্ড দেখুন'}</p>
+          <p className="text-slate-400 text-sm font-medium opacity-80">{isSignUp ? 'নতুন অ্যাকাউন্ট খুলুন' : 'লগইন করে ড্যাশবোর্ড দেখুন'}</p>
         </div>
 
-        <div className="bg-white rounded-[2.5rem] shadow-[0_40px_100px_rgba(0,0,0,0.4)] relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-500"></div>
+        <div className="bg-white rounded-[2.5rem] shadow-[0_40px_100px_rgba(0,0,0,0.5)] relative overflow-hidden border border-white/10">
+          <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 via-violet-600 to-indigo-500"></div>
           
-          <form onSubmit={handleSubmit} className="p-8 md:p-10 space-y-5">
-            {error && <div className="p-4 bg-rose-50 border border-rose-100 text-rose-600 text-[11px] font-bold rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2"><span>⚠️</span> {error}</div>}
-            {successMsg && <div className="p-4 bg-emerald-50 border border-emerald-100 text-emerald-600 text-[11px] font-bold rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2"><span>✅</span> {successMsg}</div>}
+          <form onSubmit={handleSubmit} className="p-8 md:p-10 space-y-6">
+            {error && <div className="p-4 bg-rose-50 border border-rose-100 text-rose-600 text-[11px] font-bold rounded-2xl flex items-center gap-3 animate-in fade-in zoom-in-95"><span>⚠️</span> {error}</div>}
+            {successMsg && <div className="p-4 bg-emerald-50 border border-emerald-100 text-emerald-600 text-[11px] font-bold rounded-2xl flex items-center gap-3 animate-in fade-in zoom-in-95"><span>✅</span> {successMsg}</div>}
 
             <div className="space-y-4">
               {isSignUp && (
                 <>
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">পূর্ণ নাম</label>
-                    <input type="text" required value={fullName} onChange={e => setFullName(e.target.value)} className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 outline-none transition-all font-semibold text-slate-900" placeholder="আপনার নাম" />
+                    <input type="text" required value={fullName} onChange={e => setFullName(e.target.value)} className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 outline-none transition-all font-semibold text-slate-800" placeholder="আপনার নাম" />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">ফোন নাম্বার</label>
-                      <input type="tel" required value={phone} onChange={e => setPhone(e.target.value)} className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 outline-none text-slate-900" placeholder="০১৮.." />
+                      <input type="tel" required value={phone} onChange={e => setPhone(e.target.value)} className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 outline-none font-semibold text-slate-800" placeholder="০১৮.." />
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">ঠিকানা</label>
-                      <input type="text" required value={address} onChange={e => setAddress(e.target.value)} className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 outline-none text-slate-900" placeholder="রংপুর" />
+                      <input type="text" required value={address} onChange={e => setAddress(e.target.value)} className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 outline-none font-semibold text-slate-800" placeholder="রংপুর" />
                     </div>
                   </div>
                 </>
               )}
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">ইমেইল</label>
-                <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 outline-none text-slate-900" placeholder="example@mail.com" />
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">ইমেইল ঠিকানা</label>
+                <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 outline-none font-semibold text-slate-800" placeholder="example@mail.com" />
               </div>
 
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">পাসওয়ার্ড</label>
                 <div className="relative">
-                  <input type={showPassword ? "text" : "password"} required value={password} onChange={e => setPassword(e.target.value)} className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 outline-none text-slate-900" placeholder="••••••••" />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 px-3">{showPassword ? '🙈' : '👁️'}</button>
+                  <input type={showPassword ? "text" : "password"} required value={password} onChange={e => setPassword(e.target.value)} className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 outline-none font-semibold text-slate-800" placeholder="••••••••" />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors px-3 py-2">
+                    {showPassword ? '🙈' : '👁️'}
+                  </button>
                 </div>
               </div>
             </div>
 
-            <button type="submit" disabled={isLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-5 rounded-2xl shadow-xl shadow-indigo-500/20 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-3">
-              {isLoading && <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>}
-              <span>{isSignUp ? 'নিবন্ধন সম্পন্ন করুন' : 'লগইন করুন'}</span>
+            <button type="submit" disabled={isLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-5 rounded-2xl shadow-2xl shadow-indigo-500/20 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-3">
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              ) : (
+                <span>{isSignUp ? 'নিবন্ধন সম্পন্ন করুন' : 'লগইন করুন'}</span>
+              )}
             </button>
 
-            <button type="button" onClick={() => setIsSignUp(!isSignUp)} className="w-full text-center text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors">
+            <button type="button" onClick={() => { setIsSignUp(!isSignUp); setError(''); setSuccessMsg(''); }} className="w-full text-center text-xs font-bold text-slate-400 hover:text-indigo-600 transition-colors uppercase tracking-tight">
               {isSignUp ? 'ইতিমধ্যে অ্যাকাউন্ট আছে? লগইন করুন' : 'অ্যাকাউন্ট নেই? নতুন অ্যাকাউন্ট খুলুন'}
             </button>
           </form>

@@ -33,6 +33,7 @@ export interface User {
   lastLogin?: string;
 }
 
+// Added optional type property to support classification of bills (e.g., 'miscellaneous')
 export interface BillingRecord {
   id: string;
   userId: string;
@@ -44,6 +45,7 @@ export interface BillingRecord {
   description?: string;
   deadline?: string;
   invoiceId?: string;
+  type?: string;
 }
 
 export interface Ticket {
