@@ -22,6 +22,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [activeTab, setActiveTab] = useState<'overview' | 'clients' | 'billing' | 'tickets'>('overview');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<ClientStatus | 'all'>('all');
+  const [showDueOnly, setShowDueOnly] = useState(false);
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -33,16 +34,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const total = users.length;
     const active = users.filter(u => u.status === 'active').length;
     const expired = users.filter(u => u.status === 'expired').length;
-    const totalDue = users.reduce((acc, curr) => acc + curr.balance, 0);
+    const totalDue = users.reduce((acc, curr) => acc + (curr.balance || 0), 0);
     const monthlyIncome = bills.filter(b => b.status === 'paid').reduce((acc, curr) => acc + curr.amount, 0);
 
     return { total, active, expired, totalDue, monthlyIncome };
   }, [users, bills]);
 
   const filteredUsers = users.filter(u => {
-    const matchesSearch = u.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || u.username.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = u.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                         u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         u.phone.includes(searchTerm);
     const matchesStatus = statusFilter === 'all' || u.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesDue = !showDueOnly || (u.balance && u.balance > 0);
+    return matchesSearch && matchesStatus && matchesDue;
   });
 
   const handleOpenAddModal = (e: React.MouseEvent) => {
@@ -93,6 +97,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const viewDueUsers = () => {
+    setShowDueOnly(true);
+    setStatusFilter('all');
+    setSearchTerm('');
+    setActiveTab('clients');
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20 relative">
       {/* Navigation */}
@@ -115,53 +126,79 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {activeTab === 'overview' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">মোট গ্রাহক</p>
-            <h3 className="text-3xl font-black text-slate-800">{stats.total}</h3>
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between min-h-[160px]">
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">মোট গ্রাহক</p>
+              <h3 className="text-4xl font-black text-slate-800 tracking-tighter">{stats.total}</h3>
+            </div>
             <p className="text-[10px] font-bold text-emerald-500 mt-2">{stats.active} জন সচল</p>
           </div>
-          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">মেয়াদোত্তীর্ণ (Expired)</p>
-            <h3 className="text-3xl font-black text-rose-500">{stats.expired}</h3>
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between min-h-[160px]">
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">মেয়াদোত্তীর্ণ (EXPIRED)</p>
+              <h3 className="text-4xl font-black text-rose-500 tracking-tighter">{stats.expired}</h3>
+            </div>
           </div>
-          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">মোট বকেয়া</p>
-            <h3 className="text-3xl font-black text-rose-600">৳{stats.totalDue}</h3>
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between min-h-[160px]">
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">মোট বকেয়া</p>
+              <h3 className="text-4xl font-black text-rose-600 tracking-tighter">৳{stats.totalDue}</h3>
+            </div>
+            <button 
+              onClick={viewDueUsers}
+              className="mt-4 text-[10px] font-black text-indigo-600 bg-indigo-50 px-4 py-2 rounded-xl hover:bg-indigo-600 hover:text-white transition-all w-fit uppercase tracking-wider"
+            >
+              বকেয়া ইউজার দেখুন →
+            </button>
           </div>
-          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">মাসিক আয়</p>
-            <h3 className="text-3xl font-black text-indigo-600">৳{stats.monthlyIncome}</h3>
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between min-h-[160px]">
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">মাসিক আয়</p>
+              <h3 className="text-4xl font-black text-indigo-600 tracking-tighter">৳{stats.monthlyIncome}</h3>
+            </div>
           </div>
         </div>
       )}
 
       {activeTab === 'clients' && (
         <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
-          <div className="p-6 md:p-8 border-b border-slate-50 flex flex-col md:flex-row gap-4 items-center justify-between">
-            <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
-              <input 
-                type="text" 
-                placeholder="নাম বা আইডি দিয়ে খুঁজুন..." 
-                className="px-6 py-4 bg-slate-50 border-none rounded-2xl text-xs font-bold w-full md:w-64 outline-none focus:ring-4 focus:ring-indigo-500/10"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-              />
-              <select 
-                className="px-4 py-4 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none"
-                value={statusFilter}
-                onChange={e => setStatusFilter(e.target.value as any)}
+          <div className="p-6 md:p-8 border-b border-slate-50 flex flex-col gap-6">
+            <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+              <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+                <input 
+                  type="text" 
+                  placeholder="নাম বা আইডি দিয়ে খুঁজুন..." 
+                  className="px-6 py-4 bg-slate-50 border-none rounded-2xl text-xs font-bold w-full md:w-64 outline-none focus:ring-4 focus:ring-indigo-500/10"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                />
+                <select 
+                  className="px-4 py-4 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none"
+                  value={statusFilter}
+                  onChange={e => setStatusFilter(e.target.value as any)}
+                >
+                  <option value="all">সব স্ট্যাটাস</option>
+                  <option value="active">Active</option>
+                  <option value="expired">Expired</option>
+                </select>
+              </div>
+              <button 
+                onClick={handleOpenAddModal}
+                className="w-full md:w-auto px-8 py-4 bg-indigo-600 text-white rounded-2xl text-xs font-black shadow-xl shadow-indigo-100 hover:scale-[1.02] active:scale-[0.95] transition-all z-10"
               >
-                <option value="all">সব স্ট্যাটাস</option>
-                <option value="active">Active</option>
-                <option value="expired">Expired</option>
-              </select>
+                + Add Client
+              </button>
             </div>
-            <button 
-              onClick={handleOpenAddModal}
-              className="w-full md:w-auto px-8 py-4 bg-indigo-600 text-white rounded-2xl text-xs font-black shadow-xl shadow-indigo-100 hover:scale-[1.02] active:scale-[0.95] transition-all z-10"
-            >
-              + Add Client
-            </button>
+            
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => setShowDueOnly(!showDueOnly)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black transition-all ${showDueOnly ? 'bg-rose-100 text-rose-600 ring-2 ring-rose-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+              >
+                {showDueOnly ? '✕ বকেয়া ফিল্টার সরান' : '🛑 শুধুমাত্র বকেয়া দেখান'}
+              </button>
+              {showDueOnly && <span className="text-[10px] font-bold text-slate-400">ফিল্টার চালু আছে</span>}
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -176,7 +213,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filteredUsers.map(user => (
+                {filteredUsers.length > 0 ? filteredUsers.map(user => (
                   <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-8 py-6">
                       <div>
@@ -195,7 +232,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         {user.status === 'active' ? 'সচল' : 'মেয়াদ শেষ'}
                       </span>
                     </td>
-                    <td className="px-8 py-6 font-black text-sm">৳{user.balance}</td>
+                    <td className="px-8 py-6 font-black text-sm">
+                      <span className={user.balance > 0 ? 'text-rose-600' : 'text-slate-400'}>৳{user.balance || 0}</span>
+                    </td>
                     <td className="px-8 py-6 text-right">
                        <button 
                          onClick={() => handleOpenEditModal(user)} 
@@ -206,7 +245,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                        </button>
                     </td>
                   </tr>
-                ))}
+                )) : (
+                  <tr>
+                    <td colSpan={5} className="px-8 py-20 text-center text-slate-400 font-bold">
+                      কোনো কাস্টমার পাওয়া যায়নি।
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
