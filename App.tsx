@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { AuthState, User, Package, BillingRecord, Ticket } from './types';
-import { supabase, isSupabaseConfigured } from './services/supabaseClient';
-import Auth from './components/Login'; 
-import CustomerDashboard from './components/CustomerDashboard';
-import AdminDashboard from './components/AdminDashboard';
-import Navbar from './components/Navbar';
+import { AuthState, User, Package, BillingRecord, Ticket } from './types.ts';
+import { supabase, isSupabaseConfigured } from './services/supabaseClient.ts';
+import Auth from './components/Login.tsx'; 
+import CustomerDashboard from './components/CustomerDashboard.tsx';
+import AdminDashboard from './components/AdminDashboard.tsx';
+import Navbar from './components/Navbar.tsx';
 
 const ADMIN_EMAIL = 'rkkaocher@gmail.com';
 
@@ -55,6 +55,21 @@ const App: React.FC = () => {
   const [auth, setAuth] = useState<AuthState>({ user: null, isAuthenticated: false });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    return localStorage.getItem('theme') === 'dark';
+  });
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDarkMode]);
+
+  const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
 
   const fetchUserProfile = useCallback(async (userId: string, email?: string) => {
     try {
@@ -212,15 +227,28 @@ const App: React.FC = () => {
     </div>
   );
 
-  if (!auth.isAuthenticated) return <Auth />;
+  if (!auth.isAuthenticated || !auth.user) return <Auth />;
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
-      <Navbar user={auth.user!} onLogout={() => supabase.auth.signOut()} />
-      <main className="flex-grow container mx-auto px-4 py-8">
-        {auth.user?.role === 'admin' ? (
+    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
+      {auth.user.role !== 'admin' && (
+        <Navbar 
+          user={auth.user} 
+          isDarkMode={isDarkMode} 
+          onToggleDarkMode={toggleDarkMode} 
+          onLogout={() => supabase.auth.signOut()} 
+        />
+      )}
+      
+      <main className={`flex-grow container mx-auto px-4 ${auth.user.role === 'admin' ? 'py-0' : 'py-8'}`}>
+        {auth.user.role === 'admin' ? (
           <AdminDashboard 
-            users={users} packages={packages} bills={bills}
+            users={users} 
+            packages={packages} 
+            bills={bills}
+            isDarkMode={isDarkMode}
+            onToggleDarkMode={toggleDarkMode}
+            onLogout={() => supabase.auth.signOut()}
             onUpdateUser={async (u) => { 
               const { error } = await supabase.from('Customers').update(mapUserToProfile(u)).eq('id', u.id); 
               if (error) throw error;
@@ -243,10 +271,10 @@ const App: React.FC = () => {
             onGenerateMonthlyBills={async () => 0}
           />
         ) : (
-          <CustomerDashboard user={auth.user!} packages={packages} bills={bills} />
+          <CustomerDashboard user={auth.user} packages={packages} bills={bills} />
         )}
       </main>
-      <footer className="bg-white border-t py-8 text-center text-slate-400 text-[10px] font-black uppercase tracking-widest">
+      <footer className="bg-white dark:bg-slate-900 dark:border-slate-800 border-t py-8 text-center text-slate-400 text-[10px] font-black uppercase tracking-widest">
         NexusConnect High Performance Connectivity • {new Date().getFullYear()}
       </footer>
     </div>
